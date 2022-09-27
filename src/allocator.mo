@@ -1,5 +1,5 @@
 import Types "types";
-import StableMemory "stableMemory";
+import AlignedStruct "alignedStruct";
 
 import Blob "mo:base/Blob";
 import Text "mo:base/Text";
@@ -16,6 +16,7 @@ module {
   type Variant = Types.Variant;
   type AlignedStruct = Types.AlignedStruct;
   type AlignedStructDefinition = Types.AlignedStructDefinition;
+  type Memory<M> = Types.Memory<M>;
 
   let ALLOCATOR_LAYOUT_VERSION: Nat8 = 1;
   let CHUNK_LAYOUT_VERSION: Nat8 = 1;
@@ -45,7 +46,7 @@ module {
   ///
   /// * The given memory is not being used by any other data structure.
   // @diff: no template type memory
-  public type Allocator = {
+  public type Allocator<M> = {
     // The address in memory where the `AllocatorHeader` is stored.
     header_addr: Address;
 
@@ -57,6 +58,8 @@ module {
 
     // A linked list of unallocated chunks.
     free_list_head: Address;
+
+    memory: Memory<M>;
   };
 
   type AllocatorHeader = {
@@ -82,7 +85,7 @@ module {
   ];
 
   func sizeAllocatorHeader() : Nat64 {
-    StableMemory.sizeAlignedStructDefinition(ALLOCATOR_HEADER_STRUCT_DEFINITION);
+    AlignedStruct.sizeDefinition(ALLOCATOR_HEADER_STRUCT_DEFINITION);
   };
 
   /// Initialize an allocator and store it in address `addr`.
@@ -95,27 +98,27 @@ module {
   ///      ..   free_list_head  ↑      next
   ///                |__________|       |____ NULL
   ///
-  public func initAllocator(addr: Address, allocation_size: Bytes) : Allocator {
+  public func initAllocator<M>(memory: Memory<M>, addr: Address, allocation_size: Bytes) : Allocator<M> {
     let free_list_head = addr + sizeAllocatorHeader();
 
     // Create the initial memory chunk and save it directly after the allocator's header.
     let chunk_header = initChunkHeader();
-    saveChunkHeader(chunk_header, free_list_head);
+    let updated_memory = saveChunkHeader(chunk_header, free_list_head, memory);
 
     let allocator = {
       header_addr = addr;
       allocation_size;
       num_allocated_chunks: Nat64 = 0;
       free_list_head;
+      memory = updated_memory;
     };
 
     saveAllocator(allocator);
-    allocator;
   };
 
   /// Load an allocator from memory at the given `addr`.
-  public func loadAllocator(addr: Address) : Allocator {
-    let header = structToAllocatorHeader(StableMemory.loadAlignedStruct(addr, ALLOCATOR_HEADER_STRUCT_DEFINITION));
+  public func loadAllocator<M>(memory: Memory<M>, addr: Address) : Allocator<M> {
+    let header = structToAllocatorHeader(memory.load(memory, addr, ALLOCATOR_HEADER_STRUCT_DEFINITION));
     if (header.magic != Text.encodeUtf8(ALLOCATOR_MAGIC)) { Debug.trap("Bad magic."); };
     if (header.version != ALLOCATOR_LAYOUT_VERSION) { Debug.trap("Unsupported version."); };
     
@@ -124,6 +127,7 @@ module {
       allocation_size = header.allocation_size;
       num_allocated_chunks = header.num_allocated_chunks;
       free_list_head = header.free_list_head;
+      memory = memory;
     };
   };
 
@@ -165,10 +169,10 @@ module {
   ///         ..   free_list_head      (allocated)      ↑       next
   ///                   |_______________________________↑         |____ NULL
   ///
-  public func allocate(allocator: Allocator) : (Allocator, Address) {
+  public func allocate<M>(allocator: Allocator<M>) : (Allocator<M>, Address) {
     // Get the next available chunk.
     let chunk_addr = allocator.free_list_head;
-    let chunk = loadChunkHeader(chunk_addr);
+    let chunk = loadChunkHeader(chunk_addr, allocator.memory);
 
     // The available chunk must not be allocated.
     if (chunk.allocated) { Debug.trap("Attempting to allocate an already allocated chunk."); };
@@ -181,7 +185,7 @@ module {
       _alignment = chunk._alignment;
       next = chunk.next;
     };
-    saveChunkHeader(updated_chunk, chunk_addr);
+    var updated_memory = saveChunkHeader(updated_chunk, chunk_addr, allocator.memory);
 
     // Update the head of the free list.
     var free_list_head = allocator.free_list_head;
@@ -192,7 +196,7 @@ module {
       // There is no next chunk. Shift everything by chunk size.
       free_list_head += chunkSize(allocator);
       // Write new chunk to that location.
-      saveChunkHeader(initChunkHeader(), free_list_head);
+      updated_memory := saveChunkHeader(initChunkHeader(), free_list_head, allocator.memory);
     };
 
     let updated_allocator = {
@@ -200,17 +204,17 @@ module {
       allocation_size = allocator.allocation_size;
       num_allocated_chunks = allocator.num_allocated_chunks + 1;
       free_list_head = free_list_head;
+      memory = updated_memory;
     };
-    saveAllocator(updated_allocator);
 
     // Return updated allocator and the chunk's address offset by the chunk's header.
-    (updated_allocator, chunk_addr + sizeChunkHeader());
+    (saveAllocator(updated_allocator), chunk_addr + sizeChunkHeader());
   };
 
   /// Deallocates a previously allocated chunk.
-  public func deallocate(allocator: Allocator, address: Address) : Allocator {
+  public func deallocate<M>(allocator: Allocator<M>, address: Address) : Allocator<M> {
     let chunk_addr = address - sizeChunkHeader();
-    let chunk = loadChunkHeader(chunk_addr);
+    let chunk = loadChunkHeader(chunk_addr, allocator.memory);
 
     // The available chunk must be allocated.
     if (not chunk.allocated) { Debug.trap("Attempting to deallocate a chunk that is not allocated."); };
@@ -223,7 +227,7 @@ module {
       _alignment = chunk._alignment;
       next = allocator.free_list_head;
     };
-    saveChunkHeader(updated_chunk, chunk_addr);
+    let updated_memory = saveChunkHeader(updated_chunk, chunk_addr, allocator.memory);
 
     // Update the head of the free list.
     let updated_allocator = {
@@ -231,25 +235,31 @@ module {
       allocation_size = allocator.allocation_size;
       num_allocated_chunks = allocator.num_allocated_chunks - 1;
       free_list_head = chunk_addr;
+      memory = updated_memory;
     };
-    saveAllocator(updated_allocator);
-
+    
     // Return the updated allocator
-    updated_allocator;
+    saveAllocator(updated_allocator);
   };
 
   /// Saves the allocator to memory.
-  public func saveAllocator(allocator: Allocator) {
-    StableMemory.saveAlignedStruct(allocatorHeaderToAlignedStruct(getHeader(allocator)), allocator.header_addr);
+  public func saveAllocator<M>(allocator: Allocator<M>) : Allocator<M> {
+    {
+      header_addr = allocator.header_addr;
+      allocation_size = allocator.allocation_size;
+      num_allocated_chunks = allocator.num_allocated_chunks - 1;
+      free_list_head = allocator.free_list_head;
+      memory = allocator.memory.store(allocator.memory, allocator.header_addr, allocatorHeaderToAlignedStruct(getHeader(allocator)));
+    };
   };
 
   // The full size of a chunk, which is the size of the header + the `allocation_size` that's
   // available to the user.
-  public func chunkSize(allocator: Allocator) : Bytes {
+  public func chunkSize<M>(allocator: Allocator<M>) : Bytes {
     allocator.allocation_size + sizeChunkHeader();
   };
 
-  func getHeader(allocator: Allocator) : AllocatorHeader{
+  func getHeader<M>(allocator: Allocator<M>) : AllocatorHeader{
     {
       magic = Text.encodeUtf8(ALLOCATOR_MAGIC);
       version = ALLOCATOR_LAYOUT_VERSION;
@@ -313,12 +323,12 @@ module {
     };
   };
 
-  func saveChunkHeader(chunk_header: ChunkHeader, address: Address) {
-    StableMemory.saveAlignedStruct(chunkHeaderToAlignedStruct(chunk_header), address);
+  func saveChunkHeader<M>(chunk_header: ChunkHeader, address: Address, memory: Memory<M>) : Memory<M> {
+    memory.store(memory, address, chunkHeaderToAlignedStruct(chunk_header));
   };
 
-  func loadChunkHeader(address: Address) : ChunkHeader {
-    let header = structToChunkHeader(StableMemory.loadAlignedStruct(address, CHUNK_HEADER_STRUCT_DEFINITION));
+  func loadChunkHeader<M>(address: Address, memory: Memory<M>) : ChunkHeader {
+    let header = structToChunkHeader(memory.load(memory, address, CHUNK_HEADER_STRUCT_DEFINITION));
     if (header.magic != Text.encodeUtf8(CHUNK_MAGIC)) { Debug.trap("Bad magic."); };
     if (header.version != CHUNK_LAYOUT_VERSION) { Debug.trap("Unsupported version."); };
     
@@ -326,7 +336,7 @@ module {
   };
 
   func sizeChunkHeader() : Nat64 {
-    StableMemory.sizeAlignedStructDefinition(CHUNK_HEADER_STRUCT_DEFINITION);
+    AlignedStruct.sizeDefinition(CHUNK_HEADER_STRUCT_DEFINITION);
   };
 
   func chunkHeaderToAlignedStruct(chunk_header: ChunkHeader) : AlignedStruct {

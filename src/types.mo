@@ -33,4 +33,12 @@ module {
   };
 
   public type AlignedStructDefinition = [VariantDefinition];
+
+  public type Memory<T> = {
+    size: (Memory<T>) -> Nat64;
+    store: (Memory<T>, Nat64, AlignedStruct) -> Memory<T>;
+    load: (Memory<T>, Nat64, AlignedStructDefinition) -> AlignedStruct;
+    t: T;
+  };
+
 };

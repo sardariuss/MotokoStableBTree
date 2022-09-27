@@ -1,8 +1,8 @@
 import Types "types";
+import AlignedStruct "alignedStruct";
 
 import StableMemory "mo:base/ExperimentalStableMemory";
 import Nat64 "mo:base/Nat64";
-import Debug "mo:base/Debug";
 import Buffer "mo:base/Buffer";
 import Array "mo:base/Array";
 
@@ -13,6 +13,21 @@ module {
   type Variant = Types.Variant;
   type AlignedStruct = Types.AlignedStruct;
   type AlignedStructDefinition = Types.AlignedStructDefinition;
+  type Memory<T> = Types.Memory<T>;
+
+  public let STABLE_MEMORY : Memory<()> = {
+    size = func(memory: Memory<()>) : Nat64 { 
+      StableMemory.size(); 
+    };
+    store = func(memory: Memory<()>, address: Nat64, struct: AlignedStruct) : Memory<()> {
+      storeAlignedStruct(struct, address);
+      memory;
+    };
+    load = func(memory: Memory<()>, address: Nat64, struct_def: AlignedStructDefinition) : AlignedStruct {
+      loadAlignedStruct(address, struct_def);
+    };
+    t = ();
+  };
   
   let WASM_PAGE_SIZE : Nat64 = 65536;
 
@@ -24,48 +39,10 @@ module {
     };
   };
 
-  public func sizeAlignedStruct(struct: AlignedStruct) : Nat64 {
-    var size : Nat64 = 0;
-    for(variant in Array.vals(struct)){
-      switch(variant){
-        case(#Nat8(_))   { size += 1;                          };
-        case(#Nat16(_))  { size += 2;                          };
-        case(#Nat32(_))  { size += 4;                          };
-        case(#Nat64(_))  { size += 8;                          };
-        case(#Int8(_))   { size += 1;                          };
-        case(#Int16(_))  { size += 2;                          };
-        case(#Int32(_))  { size += 4;                          };
-        case(#Int64(_))  { size += 8;                          };
-        case(#Float(_))  { size += 8;                          };
-        case(#Blob(blob)){ size += Nat64.fromNat(blob.size()); };
-      };
-    };
-    size;
-  };
-
-  public func sizeAlignedStructDefinition(struct_def: AlignedStructDefinition) : Nat64 {
-    var size : Nat64 = 0;
-    for(variant_def in Array.vals(struct_def)){
-      switch(variant_def){
-        case(#Nat8)           { size += 1;         };
-        case(#Nat16)          { size += 2;         };
-        case(#Nat32)          { size += 4;         };
-        case(#Nat64)          { size += 8;         };
-        case(#Int8)           { size += 1;         };
-        case(#Int16)          { size += 2;         };
-        case(#Int32)          { size += 4;         };
-        case(#Int64)          { size += 8;         };
-        case(#Float)          { size += 8;         };
-        case(#Blob(blob_size)){ size += blob_size; };
-      };
-    };
-    size;
-  };
-
-  public func saveAlignedStruct(struct: AlignedStruct, address: Address) {
+  func storeAlignedStruct(struct: AlignedStruct, address: Address) {
     var offset = address;
     // Ensure there is enough space to store the whole struct
-    ensure(offset + sizeAlignedStruct(struct));
+    ensure(offset + AlignedStruct.size(struct));
     for(variant in Array.vals(struct)){
       switch(variant){
         case(#Nat8(value)) { StableMemory.storeNat8(offset, value);  offset += 1;                           };
@@ -82,7 +59,7 @@ module {
     };
   };
 
-  public func loadAlignedStruct(address: Address, struct_def: AlignedStructDefinition) : AlignedStruct {
+  func loadAlignedStruct(address: Address, struct_def: AlignedStructDefinition) : AlignedStruct {
     var offset = address;
     var buffer = Buffer.Buffer<Variant>(0);
     for (variant_def in Array.vals(struct_def)){
