@@ -1,5 +1,5 @@
-import Types "types";
-import AlignedStruct "alignedStruct";
+import Types "../types";
+import AlignedStruct "../alignedStruct";
 
 import StableMemory "mo:base/ExperimentalStableMemory";
 import Nat64 "mo:base/Nat64";
@@ -29,10 +29,8 @@ module {
     t = ();
   };
   
-  let WASM_PAGE_SIZE : Nat64 = 65536;
-
   func ensure(offset : Nat64) {
-    let pages = (offset + WASM_PAGE_SIZE) >> 16;
+    let pages = (offset + Types.WASM_PAGE_SIZE) >> 16;
     if (pages > StableMemory.size()) {
       let oldsize = StableMemory.grow(pages - StableMemory.size());
       assert (oldsize != 0xFFFF_FFFF_FFFF_FFFF);

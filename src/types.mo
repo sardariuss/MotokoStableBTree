@@ -1,6 +1,8 @@
 
 module {
 
+  public let WASM_PAGE_SIZE : Nat64 = 65536;
+
   public type Address = Nat64;
   public type Bytes = Nat64;
 
