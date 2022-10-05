@@ -1,5 +1,5 @@
 import Types "types";
-import AlignedStruct "alignedStruct";
+import Conversion "conversion";
 
 import Blob "mo:base/Blob";
 import Text "mo:base/Text";
@@ -13,6 +13,7 @@ import Nat16 "mo:base/Nat16";
 import Nat32 "mo:base/Nat32";
 import Result "mo:base/Result";
 
+
 module {
 
   // For convenience: from base module
@@ -21,10 +22,10 @@ module {
   // For convenience: from types module
   type Address = Types.Address;
   type Bytes = Types.Bytes;
-  type Variant = Types.Variant;
-  type AlignedStruct = Types.AlignedStruct;
-  type AlignedStructDefinition = Types.AlignedStructDefinition;
   type Memory<M> = Types.Memory<M>;
+  type Entry = Types.Entry;
+  type NodeType = Types.NodeType;
+  type Node = Types.Node;
 
   /// The minimum degree to use in the btree.
   /// This constant is taken from Rust's std implementation of BTreeMap.
@@ -34,39 +35,9 @@ module {
   let LEAF_NODE_TYPE: Nat8 = 0;
   let INTERNAL_NODE_TYPE: Nat8 = 1;
   // The size of Nat32 in bytes.
-  let U32_SIZE: Bytes = 4;
+  let U32_SIZE: Nat = 4;
   // The size of an address in bytes.
-  let ADDRESS_SIZE: Bytes = 8;
-
-  // Entries in the node are key-value pairs and both are blobs.
-  public type Entry = (Blob, Blob);
-
-  public type NodeType = {
-    #Leaf;
-    #Internal;
-  };
-
-  /// A node of a B-Tree.
-  ///
-  /// The node is stored in stable memory with the following layout:
-  ///
-  ///    |  NodeHeader  |  Entries (keys and values) |  Children  |
-  ///
-  /// Each node contains up to `CAPACITY` entries, each entry contains:
-  ///     - size of key (4 bytes)
-  ///     - key (`max_key_size` bytes)
-  ///     - size of value (4 bytes)
-  ///     - value (`max_value_size` bytes)
-  ///
-  /// Each node can contain up to `CAPACITY + 1` children, each child is 8 bytes.
-  public type Node = {
-    address: Address;
-    entries: [Entry];
-    children: [Address];
-    node_type: NodeType;
-    max_key_size: Nat32;
-    max_value_size: Nat32;
-  };
+  let ADDRESS_SIZE: Nat = 8;
 
   /// Loads a node from memory at the given address.
   public func load<M>(
@@ -78,27 +49,27 @@ module {
     
     // Load the header.
     let header = loadNodeHeader(address, memory);
-    if (header.magic != Text.encodeUtf8(MAGIC)) { Debug.trap("Bad magic."); };
-    if (header.version != LAYOUT_VERSION) { Debug.trap("Unsupported version."); };
+    if (header.magic != Blob.toArray(Text.encodeUtf8(MAGIC))) { Debug.trap("Bad magic."); };
+    if (header.version != LAYOUT_VERSION)                     { Debug.trap("Unsupported version."); };
 
     // Load the entries.
     var entries = Buffer.Buffer<Entry>(0);
-    var offset = sizeNodeHeader();
+    var offset = SIZE_NODE_HEADER;
     for (_ in Iter.range(0, Nat16.toNat(header.num_entries - 1))){ // @todo: verify if it is really num_entries - 1
       // Read the key's size.
-      let key_size = readNat32(memory, address + offset);
-      offset += U32_SIZE;
+      let key_size = Conversion.bytesToNat32(memory.load(memory, address + offset, U32_SIZE));
+      offset += Nat64.fromNat(U32_SIZE);
 
       // Read the key.
-      let key = readBlob(memory, address + offset, Nat32.toNat(key_size));
+      let key = memory.load(memory, address + offset, Nat32.toNat(key_size));
       offset += Nat64.fromNat(Nat32.toNat(max_key_size));
 
       // Read the value's size.
-      let value_size = readNat32(memory, address + offset);
-      offset += U32_SIZE;
+      let value_size = Conversion.bytesToNat32(memory.load(memory, address + offset, U32_SIZE));
+      offset += Nat64.fromNat(U32_SIZE);
 
       // Read the value.
-      let value = readBlob(memory, address + offset, Nat32.toNat(value_size));
+      let value = memory.load(memory, address + offset, Nat32.toNat(value_size));
       offset += Nat64.fromNat(Nat32.toNat(max_value_size));
 
       entries.add((key, value));
@@ -109,8 +80,8 @@ module {
     if (header.node_type == INTERNAL_NODE_TYPE) {
       // The number of children is equal to the number of entries + 1.
       for (_ in Iter.range(0, Nat16.toNat(header.num_entries))){ // @todo: verify if it is really num_entries
-        let child = readNat64(memory, address + offset);
-        offset += ADDRESS_SIZE;
+        let child = Conversion.bytesToNat64(memory.load(memory, address + offset, ADDRESS_SIZE));
+        offset += Nat64.fromNat(ADDRESS_SIZE);
         children.add(child);
       };
       assert(children.size() == entries.size() + 1);
@@ -144,7 +115,7 @@ module {
     //assert(node.entries.windows(2).all(|e| e[0].0 < e[1].0)); // @todo
 
     let header = {
-      magic = Text.encodeUtf8(MAGIC);
+      magic = Blob.toArray(Text.encodeUtf8(MAGIC));
       version = LAYOUT_VERSION;
       node_type = switch(node.node_type){
         case(#Leaf) { LEAF_NODE_TYPE; };
@@ -155,31 +126,31 @@ module {
 
     var updated_memory = saveNodeHeader(header, node.address, memory);
     
-    var offset = sizeNodeHeader();
+    var offset = SIZE_NODE_HEADER;
 
     // Write the entries.
     for ((key, value) in Array.vals(node.entries)) {
       // Write the size of the key.
-      updated_memory := writeNat32<M>(updated_memory, node.address + offset, Nat32.fromNat(key.size()));
-      offset += U32_SIZE;
+      updated_memory := memory.store(updated_memory, node.address + offset, Conversion.nat32ToBytes(Nat32.fromNat(key.size())));
+      offset += Nat64.fromNat(U32_SIZE);
 
       // Write the key.
-      updated_memory := writeBlob(updated_memory, node.address + offset, key);
+      updated_memory := memory.store(updated_memory, node.address + offset, key);
       offset += Nat64.fromNat(Nat32.toNat(node.max_key_size));
 
       // Write the size of the value.
-      updated_memory := writeNat32<M>(updated_memory, node.address + offset, Nat32.fromNat(value.size()));
-      offset += U32_SIZE;
+      updated_memory := memory.store(updated_memory, node.address + offset, Conversion.nat32ToBytes(Nat32.fromNat(value.size())));
+      offset += Nat64.fromNat(U32_SIZE);
 
       // Write the value.
-      updated_memory := writeBlob(updated_memory, node.address + offset, value);
+      updated_memory := memory.store(updated_memory, node.address + offset, value);
       offset += Nat64.fromNat(Nat32.toNat(node.max_value_size));
     };
 
     // Write the children
     for (child in Array.vals(node.children)){
-      updated_memory := writeNat64<M>(updated_memory, node.address + offset, child);
-      offset += ADDRESS_SIZE; // Address size
+      updated_memory := memory.store(updated_memory, node.address + offset, Conversion.nat64ToBytes(child));
+      offset += Nat64.fromNat(ADDRESS_SIZE); // Address size
     };
 
     updated_memory;
@@ -257,14 +228,14 @@ module {
     let max_key_size_n64 = Nat64.fromNat(Nat32.toNat(max_key_size));
     let max_value_size_n64 = Nat64.fromNat(Nat32.toNat(max_value_size));
 
-    let node_header_size = sizeNodeHeader();
-    let entry_size = U32_SIZE + max_key_size_n64 + max_value_size_n64 + U32_SIZE;
-    let child_size = ADDRESS_SIZE;
+    let node_header_size = SIZE_NODE_HEADER;
+    let entry_size = Nat64.fromNat(U32_SIZE) + max_key_size_n64 + max_value_size_n64 + Nat64.fromNat(U32_SIZE);
+    let child_size = Nat64.fromNat(ADDRESS_SIZE);
 
     // @todo: verify the logic here, but at first sight it seems that Bytes::from implementation in rust does nothing useful but wrap the nat64 type
     node_header_size
       + getCapacity() * entry_size
-      + (getCapacity() + 1)  * child_size;
+      + (getCapacity() + 1) * child_size;
   };
 
   /// Deduce the node type based on the node header
@@ -281,90 +252,31 @@ module {
 
   // A transient data structure for reading/writing metadata into/from stable memory.
   type NodeHeader = {
-    magic: Blob; // 3 bytes
+    magic: [Nat8]; // 3 bytes
     version: Nat8;
     node_type: Nat8;
     num_entries: Nat16;
   };
 
-  let NODE_HEADER_STRUCT_DEFINITION : AlignedStructDefinition = [
-    #Blob(3), // magic
-    #Nat8,    // version
-    #Nat8,    // node_type
-    #Nat16,   // num_entries
-  ];
+  let SIZE_NODE_HEADER : Nat64 = 7;
 
-  func saveNodeHeader<M>(node_header: NodeHeader, address: Address, memory: Memory<M>) : Memory<M> {
-    memory.store(memory, address, nodeHeaderToAlignedStruct(node_header));
+  func saveNodeHeader<M>(header: NodeHeader, addr: Address, memory: Memory<M>) : Memory<M> {
+    var updated_memory = memory;
+    updated_memory := updated_memory.store(updated_memory, addr,                                            header.magic);
+    updated_memory := updated_memory.store(updated_memory, addr + 3,                                    [header.version]);
+    updated_memory := updated_memory.store(updated_memory, addr + 3 + 1,                              [header.node_type]);
+    updated_memory := updated_memory.store(updated_memory, addr + 3 + 1 + 1, Conversion.nat16ToBytes(header.num_entries));
+    updated_memory;
   };
 
-  func loadNodeHeader<M>(address: Address, memory: Memory<M>) : NodeHeader {
-    let header = structToNodeHeader(memory.load(memory, address, NODE_HEADER_STRUCT_DEFINITION));
-    if (header.magic != Text.encodeUtf8(MAGIC)) { Debug.trap("Bad magic."); };
-    if (header.version != LAYOUT_VERSION) { Debug.trap("Unsupported version."); };
-    
+  func loadNodeHeader<M>(addr: Address, memory: Memory<M>) : NodeHeader {
+    let header = {
+      magic =                               memory.load(memory, addr,             3);
+      version =                             memory.load(memory, addr + 3,         1)[0];
+      node_type =                           memory.load(memory, addr + 3 + 1,     1)[0];
+      num_entries = Conversion.bytesToNat16(memory.load(memory, addr + 3 + 1 + 1, 2));
+    };
     header;
   };
-
-  func sizeNodeHeader() : Nat64 {
-    AlignedStruct.sizeDefinition(NODE_HEADER_STRUCT_DEFINITION);
-  };
-
-  func nodeHeaderToAlignedStruct(node_header: NodeHeader) : AlignedStruct {
-    var buffer = Buffer.Buffer<Variant>(0);
-    // Convert bool to nat8
-    buffer.add(#Blob(node_header.magic));
-    buffer.add(#Nat8(node_header.version));
-    buffer.add(#Nat8(node_header.node_type));
-    buffer.add(#Nat16(node_header.num_entries));
-    // Return array
-    buffer.toArray();
-  };
-
-  func structToNodeHeader(struct: AlignedStruct) : NodeHeader {
-    {
-      magic       = switch(struct[0]){ case(#Blob(value))  { value; }; case(_) { Debug.trap("Unexpected variant type."); }; };
-      version     = switch(struct[1]){ case(#Nat8(value))  { value; }; case(_) { Debug.trap("Unexpected variant type."); }; };
-      node_type   = switch(struct[2]){ case(#Nat8(value))  { value; }; case(_) { Debug.trap("Unexpected variant type."); }; };
-      num_entries = switch(struct[3]){ case(#Nat16(value)) { value; }; case(_) { Debug.trap("Unexpected variant type."); }; };
-    };
-  };
-
-  func readNat32<M>(memory: Memory<M>, address: Address) : Nat32 {
-    let alignedStruct = memory.load(memory, address, [#Nat32]);
-    switch(alignedStruct[0]){
-      case(#Nat32(value)) { value; };
-      case(_) { Debug.trap("Unexpected variant type."); };
-    };
-  };
-
-  func readNat64<M>(memory: Memory<M>, address: Address) : Nat64 {
-    let alignedStruct = memory.load(memory, address, [#Nat64]);
-    switch(alignedStruct[0]){
-      case(#Nat64(value)) { value; };
-      case(_) { Debug.trap("Unexpected variant type."); };
-    };
-  };
-
-  func readBlob<M>(memory: Memory<M>, address: Address, size: Nat) : Blob {
-    let alignedStruct = memory.load(memory, address, [#Blob(Nat64.fromNat(size))]);
-    switch(alignedStruct[0]){
-      case(#Blob(value)) { value; };
-      case(_) { Debug.trap("Unexpected variant type."); };
-    };
-  };
-
-  func writeNat32<M>(memory: Memory<M>, address: Address, value: Nat32) : Memory<M> {
-    memory.store(memory, address, [#Nat32(value)]);
-  };
-
-  func writeNat64<M>(memory: Memory<M>, address: Address, value: Nat64) : Memory<M> {
-    memory.store(memory, address, [#Nat64(value)]);
-  };
-
-  func writeBlob<M>(memory: Memory<M>, address: Address, value: Blob) : Memory<M> {
-    memory.store(memory, address, [#Blob(value)]);
-  };
-  
 
 };

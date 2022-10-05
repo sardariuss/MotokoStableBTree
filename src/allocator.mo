@@ -1,21 +1,16 @@
 import Types "types";
-import AlignedStruct "alignedStruct";
+import Conversion "conversion";
 
 import Blob "mo:base/Blob";
 import Text "mo:base/Text";
 import Nat64 "mo:base/Nat64";
 import Debug "mo:base/Debug";
-import Buffer "mo:base/Buffer";
-import Array "mo:base/Array";
 
 module {
 
   // For convenience: from types module
   type Address = Types.Address;
   type Bytes = Types.Bytes;
-  type Variant = Types.Variant;
-  type AlignedStruct = Types.AlignedStruct;
-  type AlignedStructDefinition = Types.AlignedStructDefinition;
   type Memory<M> = Types.Memory<M>;
 
   let ALLOCATOR_LAYOUT_VERSION: Nat8 = 1;
@@ -63,30 +58,18 @@ module {
   };
 
   type AllocatorHeader = {
-    magic: Blob; // 3 bytes
+    magic: [Nat8]; // 3 bytes
     version: Nat8;
     // Empty space to memory-align the following fields.
-    _alignment: Blob; // 3 bytes
+    _alignment: [Nat8]; // 4 bytes
     allocation_size: Bytes;
     num_allocated_chunks: Nat64;
     free_list_head: Address;
     // Additional space reserved to add new fields without breaking backward-compatibility.
-    _buffer: Blob; // 16 bytes
+    _buffer: [Nat8]; // 16 bytes
   };
 
-  let ALLOCATOR_HEADER_STRUCT_DEFINITION : AlignedStructDefinition = [
-    #Blob(3),   // magic
-    #Nat8,      // version
-    #Blob(3),   // _alignment
-    #Nat64,     // allocation_size
-    #Nat64,     // num_allocated_chunks
-    #Nat64,     // free_list_head
-    #Blob(16),  // _buffer
-  ];
-
-  func sizeAllocatorHeader() : Nat64 {
-    AlignedStruct.sizeDefinition(ALLOCATOR_HEADER_STRUCT_DEFINITION);
-  };
+  let SIZE_ALLOCATOR_HEADER : Nat64 = 48;
 
   /// Initialize an allocator and store it in address `addr`.
   ///
@@ -99,7 +82,7 @@ module {
   ///                |__________|       |____ NULL
   ///
   public func initAllocator<M>(memory: Memory<M>, addr: Address, allocation_size: Bytes) : Allocator<M> {
-    let free_list_head = addr + sizeAllocatorHeader();
+    let free_list_head = addr + SIZE_ALLOCATOR_HEADER;
 
     // Create the initial memory chunk and save it directly after the allocator's header.
     let chunk_header = initChunkHeader();
@@ -118,9 +101,19 @@ module {
 
   /// Load an allocator from memory at the given `addr`.
   public func loadAllocator<M>(memory: Memory<M>, addr: Address) : Allocator<M> {
-    let header = structToAllocatorHeader(memory.load(memory, addr, ALLOCATOR_HEADER_STRUCT_DEFINITION));
-    if (header.magic != Text.encodeUtf8(ALLOCATOR_MAGIC)) { Debug.trap("Bad magic."); };
-    if (header.version != ALLOCATOR_LAYOUT_VERSION) { Debug.trap("Unsupported version."); };
+    
+    let header = {
+      magic                =                         memory.load(memory, addr,                         3);
+      version              =                         memory.load(memory, addr + 3,                     1)[0];
+      _alignment           =                         memory.load(memory, addr + 3 + 1,                 4);
+      allocation_size      = Conversion.bytesToNat64(memory.load(memory, addr + 3 + 1 + 4,             8));
+      num_allocated_chunks = Conversion.bytesToNat64(memory.load(memory, addr + 3 + 1 + 4 + 8,         8));
+      free_list_head       = Conversion.bytesToNat64(memory.load(memory, addr + 3 + 1 + 4 + 8 + 8,     8));
+      _buffer              =                         memory.load(memory, addr + 3 + 1 + 4 + 8 + 8 + 8, 16);
+    };
+
+    if (header.magic != Blob.toArray(Text.encodeUtf8(ALLOCATOR_MAGIC))) { Debug.trap("Bad magic."); };
+    if (header.version != ALLOCATOR_LAYOUT_VERSION)                     { Debug.trap("Unsupported version."); };
     
     {
       header_addr = addr;
@@ -208,12 +201,12 @@ module {
     };
 
     // Return updated allocator and the chunk's address offset by the chunk's header.
-    (saveAllocator(updated_allocator), chunk_addr + sizeChunkHeader());
+    (saveAllocator(updated_allocator), chunk_addr + SIZE_CHUNK_HEADER);
   };
 
   /// Deallocates a previously allocated chunk.
   public func deallocate<M>(allocator: Allocator<M>, address: Address) : Allocator<M> {
-    let chunk_addr = address - sizeChunkHeader();
+    let chunk_addr = address - SIZE_CHUNK_HEADER;
     let chunk = loadChunkHeader(chunk_addr, allocator.memory);
 
     // The available chunk must be allocated.
@@ -244,123 +237,89 @@ module {
 
   /// Saves the allocator to memory.
   public func saveAllocator<M>(allocator: Allocator<M>) : Allocator<M> {
+    let header = getHeader(allocator);
+    let addr = allocator.header_addr;
+
+    var updated_memory = allocator.memory;
+    updated_memory := updated_memory.store(updated_memory, addr,                                                                 header.magic);
+    updated_memory := updated_memory.store(updated_memory, addr + 3,                                                         [header.version]);
+    updated_memory := updated_memory.store(updated_memory, addr + 3 + 1,                                                    header._alignment);
+    updated_memory := updated_memory.store(updated_memory, addr + 3 + 1 + 4,                  Conversion.nat64ToBytes(header.allocation_size));
+    updated_memory := updated_memory.store(updated_memory, addr + 3 + 1 + 4 + 8,         Conversion.nat64ToBytes(header.num_allocated_chunks));
+    updated_memory := updated_memory.store(updated_memory, addr + 3 + 1 + 4 + 8 + 8,           Conversion.nat64ToBytes(header.free_list_head));
+    updated_memory := updated_memory.store(updated_memory, addr + 3 + 1 + 4 + 8 + 8 + 8,                                       header._buffer);
+
     {
-      header_addr = allocator.header_addr;
+      header_addr = addr;
       allocation_size = allocator.allocation_size;
-      num_allocated_chunks = allocator.num_allocated_chunks - 1;
+      num_allocated_chunks = allocator.num_allocated_chunks - 1; // @todo: why -1 ?
       free_list_head = allocator.free_list_head;
-      memory = allocator.memory.store(allocator.memory, allocator.header_addr, allocatorHeaderToAlignedStruct(getHeader(allocator)));
+      memory = updated_memory;
     };
   };
 
   // The full size of a chunk, which is the size of the header + the `allocation_size` that's
   // available to the user.
   public func chunkSize<M>(allocator: Allocator<M>) : Bytes {
-    allocator.allocation_size + sizeChunkHeader();
+    allocator.allocation_size + SIZE_CHUNK_HEADER;
   };
 
   func getHeader<M>(allocator: Allocator<M>) : AllocatorHeader{
     {
-      magic = Text.encodeUtf8(ALLOCATOR_MAGIC);
+      magic = Blob.toArray(Text.encodeUtf8(ALLOCATOR_MAGIC));
       version = ALLOCATOR_LAYOUT_VERSION;
-      _alignment = Blob.fromArray([0, 0, 0, 0]);
+      _alignment = [0, 0, 0, 0];
       allocation_size = allocator.allocation_size;
       num_allocated_chunks = allocator.num_allocated_chunks;
       free_list_head = allocator.free_list_head;
-      _buffer = Blob.fromArray([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
-    };
-  };
-
-  func allocatorHeaderToAlignedStruct(allocator_header: AllocatorHeader) : AlignedStruct {
-    var buffer = Buffer.Buffer<Variant>(0);
-    buffer.add(#Blob(allocator_header.magic));
-    buffer.add(#Nat8(allocator_header.version));
-    buffer.add(#Blob(allocator_header._alignment));
-    buffer.add(#Nat64(allocator_header.allocation_size));
-    buffer.add(#Nat64(allocator_header.num_allocated_chunks));
-    buffer.add(#Nat64(allocator_header.free_list_head));
-    buffer.add(#Blob(allocator_header._buffer));
-    buffer.toArray();
-  };
-
-  func structToAllocatorHeader(struct: AlignedStruct) : AllocatorHeader {
-    {
-      magic =                switch(struct[0]) { case(#Blob(value))  { value; }; case(_) { Debug.trap("Unexpected variant type."); }; };
-      version =              switch(struct[1]) { case(#Nat8(value))  { value; }; case(_) { Debug.trap("Unexpected variant type."); }; };
-      _alignment =           switch(struct[2]) { case(#Blob(value))  { value; }; case(_) { Debug.trap("Unexpected variant type."); }; };
-      allocation_size =      switch(struct[3]) { case(#Nat64(value)) { value; }; case(_) { Debug.trap("Unexpected variant type."); }; };
-      num_allocated_chunks = switch(struct[4]) { case(#Nat64(value)) { value; }; case(_) { Debug.trap("Unexpected variant type."); }; };
-      free_list_head =       switch(struct[5]) { case(#Nat64(value)) { value; }; case(_) { Debug.trap("Unexpected variant type."); }; };
-      _buffer =              switch(struct[6]) { case(#Blob(value))  { value; }; case(_) { Debug.trap("Unexpected variant type."); }; };
+      _buffer = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
     };
   };
 
   type ChunkHeader = {
-    magic: Blob; // 3 bytes
+    magic: [Nat8]; // 3 bytes
     version: Nat8;
     allocated: Bool;
     // Empty space to memory-align the following fields.
-    _alignment: Blob; // 3 bytes
+    _alignment: [Nat8]; // 3 bytes
     next: Address;
   };
 
-  let CHUNK_HEADER_STRUCT_DEFINITION : AlignedStructDefinition = [
-    #Blob(3), // magic
-    #Nat8,    // version
-    #Nat8,    // allocated
-    #Blob(3), // _alignment
-    #Nat64,   // next
-  ];
+  let SIZE_CHUNK_HEADER : Nat64 = 16;
 
   // Initializes an unallocated chunk that doesn't point to another chunk.
   func initChunkHeader() : ChunkHeader {
     {
-      magic = Text.encodeUtf8(CHUNK_MAGIC);
+      magic = Blob.toArray(Text.encodeUtf8(CHUNK_MAGIC));
       version = CHUNK_LAYOUT_VERSION;
       allocated = false;
-      _alignment = Blob.fromArray([0, 0, 0]);
+      _alignment = [0, 0, 0];
       next = NULL;
     };
   };
 
-  func saveChunkHeader<M>(chunk_header: ChunkHeader, address: Address, memory: Memory<M>) : Memory<M> {
-    memory.store(memory, address, chunkHeaderToAlignedStruct(chunk_header));
+  func saveChunkHeader<M>(header: ChunkHeader, addr: Address, memory: Memory<M>) : Memory<M> {
+    var updated_memory = memory;
+    updated_memory := updated_memory.store(updated_memory, addr,                                              header.magic);
+    updated_memory := updated_memory.store(updated_memory, addr + 3,                                      [header.version]);
+    updated_memory := updated_memory.store(updated_memory, addr + 3 + 1,          Conversion.boolToBytes(header.allocated));
+    updated_memory := updated_memory.store(updated_memory, addr + 3 + 1 + 1,                             header._alignment);
+    updated_memory := updated_memory.store(updated_memory, addr + 3 + 1 + 1 + 3,      Conversion.nat64ToBytes(header.next));
+    updated_memory;
   };
 
-  func loadChunkHeader<M>(address: Address, memory: Memory<M>) : ChunkHeader {
-    let header = structToChunkHeader(memory.load(memory, address, CHUNK_HEADER_STRUCT_DEFINITION));
-    if (header.magic != Text.encodeUtf8(CHUNK_MAGIC)) { Debug.trap("Bad magic."); };
-    if (header.version != CHUNK_LAYOUT_VERSION) { Debug.trap("Unsupported version."); };
+  func loadChunkHeader<M>(addr: Address, memory: Memory<M>) : ChunkHeader {
+    let header = {
+      magic =                            memory.load(memory, addr,                 3);
+      version =                          memory.load(memory, addr + 3,             1)[0];
+      allocated = Conversion.bytesToBool(memory.load(memory, addr + 3 + 1,         1));
+      _alignment =                       memory.load(memory, addr + 3 + 1 + 1,     3);
+      next =     Conversion.bytesToNat64(memory.load(memory, addr + 3 + 1 + 1 + 3, 8));
+    };
+    if (header.magic != Blob.toArray(Text.encodeUtf8(CHUNK_MAGIC))) { Debug.trap("Bad magic."); };
+    if (header.version != CHUNK_LAYOUT_VERSION)                     { Debug.trap("Unsupported version."); };
     
     header;
-  };
-
-  func sizeChunkHeader() : Nat64 {
-    AlignedStruct.sizeDefinition(CHUNK_HEADER_STRUCT_DEFINITION);
-  };
-
-  func chunkHeaderToAlignedStruct(chunk_header: ChunkHeader) : AlignedStruct {
-    var buffer = Buffer.Buffer<Variant>(0);
-    // Convert bool to nat8
-    var allocated_nat8 : Nat8 = 0;
-    if (chunk_header.allocated) { allocated_nat8 := 1; };
-    buffer.add(#Blob(chunk_header.magic));
-    buffer.add(#Nat8(chunk_header.version));
-    buffer.add(#Nat8(allocated_nat8));
-    buffer.add(#Blob(chunk_header._alignment));
-    buffer.add(#Nat64(chunk_header.next));
-    // Return array
-    buffer.toArray();
-  };
-
-  func structToChunkHeader(struct: AlignedStruct) : ChunkHeader {
-    {
-      magic      = switch(struct[0]){ case(#Blob(value))  { value; };      case(_) { Debug.trap("Unexpected variant type."); }; };
-      version    = switch(struct[1]){ case(#Nat8(value))  { value; };      case(_) { Debug.trap("Unexpected variant type."); }; };
-      allocated  = switch(struct[2]){ case(#Nat8(value))  { value == 1; }; case(_) { Debug.trap("Unexpected variant type."); }; };
-      _alignment = switch(struct[3]){ case(#Blob(value))  { value; };      case(_) { Debug.trap("Unexpected variant type."); }; };
-      next       = switch(struct[4]){ case(#Nat64(value)) { value; };      case(_) { Debug.trap("Unexpected variant type."); }; };
-    };
   };
 
 };
