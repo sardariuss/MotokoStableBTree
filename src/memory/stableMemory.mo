@@ -1,4 +1,5 @@
 import Types "../types";
+import Constants "../constants";
 
 import StableMemory "mo:base/ExperimentalStableMemory";
 import Nat64 "mo:base/Nat64";
@@ -26,7 +27,7 @@ module {
   };
   
   func ensure(offset : Nat64) {
-    let pages = (offset + Types.WASM_PAGE_SIZE) >> 16;
+    let pages = (offset + Constants.WASM_PAGE_SIZE) >> 16;
     if (pages > StableMemory.size()) {
       let oldsize = StableMemory.grow(pages - StableMemory.size());
       assert (oldsize != 0xFFFF_FFFF_FFFF_FFFF);

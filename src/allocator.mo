@@ -1,5 +1,6 @@
 import Types "types";
 import Conversion "conversion";
+import Constants "constants";
 
 import Blob "mo:base/Blob";
 import Text "mo:base/Text";
@@ -182,7 +183,7 @@ module {
 
     // Update the head of the free list.
     var free_list_head = allocator.free_list_head;
-    if (chunk.next != NULL) {
+    if (chunk.next != Constants.NULL) {
       // The next chunk becomes the new head of the list.
       free_list_head := chunk.next;
     } else {
@@ -294,7 +295,7 @@ module {
       version = CHUNK_LAYOUT_VERSION;
       allocated = false;
       _alignment = [0, 0, 0];
-      next = NULL;
+      next = Constants.NULL;
     };
   };
 

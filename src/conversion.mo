@@ -17,7 +17,13 @@ import Types "types";
 
 module {
 
-// Comes from Candy library conversion.mo: https://raw.githubusercontent.com/skilesare/candy_library/main/src/conversion.mo
+  public type BytesConverter<T> = {
+    fromBytes: ([Nat8]) -> T;
+    toBytes: (T) -> [Nat8];
+  };
+
+  // Comes from Candy library conversion.mo: https://raw.githubusercontent.com/skilesare/candy_library/main/src/conversion.mo
+  
   //////////////////////////////////////////////////////////////////////
   // The following functions converst standard types to Byte arrays
   // From there you can easily get to blobs if necessary with the Blob package

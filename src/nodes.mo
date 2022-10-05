@@ -216,7 +216,7 @@ module {
   /// of the matching key. If the value is not found then `Result::Err` is
   /// returned, containing the index where a matching key could be inserted
   /// while maintaining sorted order.
-  public func getKeyIdx(node: Node, key: Blob) : Result<Nat, Nat> {
+  public func getKeyIdx(node: Node, key: [Nat8]) : Result<Nat, Nat> {
     // self.entries.binary_search_by(|e| e.0.as_slice().cmp(key)) // @todo
     #ok(0);
   };
@@ -236,6 +236,34 @@ module {
     node_header_size
       + getCapacity() * entry_size
       + (getCapacity() + 1) * child_size;
+  };
+
+  /// Add a child to the node's children
+  public func addChild(node: Node, child: Address) : Node {
+    let children = Types.toBuffer<Address>(node.children);
+    children.add(child);
+    {
+      address = node.address;
+      entries = node.entries;
+      children = children.toArray();
+      node_type = node.node_type;
+      max_key_size = node.max_key_size;
+      max_value_size = node.max_value_size;
+    };
+  };
+
+  /// Add an entry to the node's entries
+  public func insertEntry(node: Node, idx: Nat, entry: Entry) : Node {
+    var entries = Array.thaw<Entry>(node.entries);
+    entries[idx] := entry;
+    {
+      address = node.address;
+      entries = Array.freeze<Entry>(entries);
+      children = node.children;
+      node_type = node.node_type;
+      max_key_size = node.max_key_size;
+      max_value_size = node.max_value_size;
+    };
   };
 
   /// Deduce the node type based on the node header

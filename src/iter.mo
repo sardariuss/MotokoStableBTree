@@ -1,5 +1,6 @@
 import Types "types";
 import Nodes "nodes";
+import Constants "constants";
 
 import Blob "mo:base/Blob";
 import Text "mo:base/Text";
@@ -21,8 +22,6 @@ class Iter<M, K, V>(map: Types.BTreeMap<M, K, V>, cursors: ?[Types.Cursor], pref
   type Node = Types.Node;
   type NodeType = Types.NodeType;
   type Entry = Types.Entry;
-
-  let NULL : Nat64 = 0;
   
   // A reference to the map being iterated on. // @todo: here it's a copy, is there any alternative in Motoko ?
   let map_: BTreeMap<M, K, V> = map;
@@ -31,7 +30,7 @@ class Iter<M, K, V>(map: Types.BTreeMap<M, K, V>, cursors: ?[Types.Cursor], pref
   var cursors_ = Stack.Stack<Cursor>();
   switch(cursors){
     case(null) { 
-      if (map.root_addr != NULL) {
+      if (map.root_addr != Constants.NULL) {
         cursors_.push(#Address(map.root_addr));
       };
     };
@@ -66,7 +65,7 @@ class Iter<M, K, V>(map: Types.BTreeMap<M, K, V>, cursors: ?[Types.Cursor], pref
       case(?cursor){
         switch(cursor){
           case(#Address(address)){
-            if (address != NULL){
+            if (address != Constants.NULL){
               // Load the node at the given address, and add it to the cursors.
               //let node = iter.map.load_node(address);
               // @todo

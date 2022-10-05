@@ -3,8 +3,6 @@ import Buffer "mo:base/Buffer";
 
 module {
 
-  public let WASM_PAGE_SIZE : Nat64 = 65536;
-
   public type Address = Nat64;
   public type Bytes = Nat64;
 
@@ -17,7 +15,7 @@ module {
 
   public type BTreeMap<M, K, V> = {
     root_addr: Address;
-  }; // @todo
+  }; // @todo: remove from here
 
   // Entries in the node are key-value pairs and both are blobs.
   public type Entry = ([Nat8], [Nat8]);
