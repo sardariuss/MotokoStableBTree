@@ -17,11 +17,6 @@ import Types "types";
 
 module {
 
-  public type BytesConverter<T> = {
-    fromBytes: ([Nat8]) -> T;
-    toBytes: (T) -> [Nat8];
-  };
-
   // Comes from Candy library conversion.mo: https://raw.githubusercontent.com/skilesare/candy_library/main/src/conversion.mo
   
   //////////////////////////////////////////////////////////////////////

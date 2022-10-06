@@ -11,6 +11,7 @@ import Text "mo:base/Text";
 import Nat32 "mo:base/Nat32";
 import Debug "mo:base/Debug";
 import Array "mo:base/Array";
+import Nat64 "mo:base/Nat64";
 
 module {
 
@@ -21,10 +22,13 @@ module {
   type Address = Types.Address;
   type Bytes = Types.Bytes;
   type Memory = Types.Memory;
+  type BytesConverter<T> = Types.BytesConverter<T>;
+  type InsertError = Types.InsertError;
+  type NodeType = Types.NodeType;
+  type Entry = Types.Entry;
 
   // For convenience: from node module
   type Node = Node.Node;
-  type NodeType = Node.NodeType;
 
   // For convenience: from allocator module
   type Allocator = Allocator.Allocator;
@@ -40,8 +44,8 @@ module {
     memory : Memory,
     max_key_size : Nat32,
     max_value_size : Nat32,
-    key_converter: Conversion.BytesConverter<K>,
-    value_converter: Conversion.BytesConverter<V>
+    key_converter: BytesConverter<K>,
+    value_converter: BytesConverter<V>
   ) : BTreeMap<K, V> {
     if (memory.size() == 0) {
       // Memory is empty. Create a new map.
@@ -74,8 +78,8 @@ module {
     memory : Memory,
     max_key_size : Nat32,
     max_value_size : Nat32,
-    key_converter: Conversion.BytesConverter<K>,
-    value_converter: Conversion.BytesConverter<V>
+    key_converter: BytesConverter<K>,
+    value_converter: BytesConverter<V>
   ) : BTreeMap<K, V> {
     // Because we assume that we have exclusive access to the memory,
     // we can store the `BTreeHeader` at address zero, and the allocator is
@@ -101,8 +105,8 @@ module {
   /// Loads the map from memory.
   public func load<K, V>(
     memory : Memory,
-    key_converter: Conversion.BytesConverter<K>,
-    value_converter: Conversion.BytesConverter<V>
+    key_converter: BytesConverter<K>,
+    value_converter: BytesConverter<V>
   ) : BTreeMap<K, V> {
     // Read the header from memory.
     let header = loadBTreeHeader(Constants.NULL, memory);
@@ -163,16 +167,11 @@ module {
     root_addr : Address;
     max_key_size : Nat32;
     max_value_size : Nat32;
-    key_converter: Conversion.BytesConverter<K>;
-    value_converter: Conversion.BytesConverter<V>;
+    key_converter: BytesConverter<K>;
+    value_converter: BytesConverter<V>;
     allocator : Allocator;
     length : Nat64;
     memory : Memory;
-  };
-
-  type InsertError = {
-    #KeyTooLarge : { given : Nat; max : Nat; };
-    #ValueTooLarge : { given : Nat; max : Nat; };
   };
 
   public class BTreeMap<K, V>(members: BTreeMapMembers<K, V>) {
@@ -185,9 +184,9 @@ module {
     // The maximum size a value can have.
     let max_value_size_ : Nat32 = members.max_value_size;
     /// To convert the key into/from bytes.
-    let key_converter_ : Conversion.BytesConverter<K> = members.key_converter;
+    let key_converter_ : BytesConverter<K> = members.key_converter;
     /// To convert the value into/from bytes.
-    let value_converter_ : Conversion.BytesConverter<V> = members.value_converter;
+    let value_converter_ : BytesConverter<V> = members.value_converter;
     // An allocator used for managing memory and allocating nodes.
     var allocator_ : Allocator = members.allocator;
     // The number of elements in the map.
@@ -199,8 +198,8 @@ module {
     public func getRootAddr() : Address { root_addr_; };
     public func getMaxKeySize() : Nat32 { max_key_size_; };
     public func getMaxValueSize() : Nat32 { max_value_size_; };
-    public func getKeyConverter() : Conversion.BytesConverter<K> { key_converter_; };
-    public func getValueConverter() : Conversion.BytesConverter<V> { value_converter_; };
+    public func getKeyConverter() : BytesConverter<K> { key_converter_; };
+    public func getValueConverter() : BytesConverter<V> { value_converter_; };
     public func getAllocator() : Allocator { allocator_; };
     public func getLength() : Nat64 { length_; };
     public func getMemory() : Memory { memory_; };
@@ -408,6 +407,476 @@ module {
           //node.save(memory);
         };
       };
+    };
+
+    /// Returns the value associated with the given key if it exists.
+    public func get(key: K) : ?V {
+      if (root_addr_ == Constants.NULL) {
+        return null;
+      };// @todo
+      //getHelper(root_addr_, key_converter_.toBytes(key)).map(V::from_bytes);
+      return null;
+    };
+
+    func getHelper(node_addr: Address, key: [Nat8]) : ?[Nat8] {
+      let node = loadNode(node_addr);
+      //switch(node.getEntries().binary_search_by(|e| e.0.as_slice().cmp(key))) {
+      switch(node.getKeyIdx([])){ // @todo
+        case(#ok(idx)) { ?node.getEntries()[idx].1; };
+        case(#err(idx)) {
+          switch(node.getNodeType()) {
+            case(#Leaf) { null; }; // Key not found.
+            case(#Internal) {
+              // The key isn't in the node. Look for the key in the child.
+              getHelper(node.getChildren()[idx], key);
+            };
+          };
+        };
+      };
+    };
+
+    /// Returns `true` if the key exists in the map, `false` otherwise.
+    public func containsKey(key: K) : Bool {
+      Option.isSome(get(key));
+    };
+
+    /// Returns `true` if the map contains no elements.
+    public func isEmpty() : Bool {
+      (length_ == 0);
+    };
+
+    /// Removes a key from the map, returning the previous value at the key if it exists.
+    public func remove(key: K) : ?V {
+      if (root_addr_ == Constants.NULL) {
+        return null;
+      };
+
+      // @todo
+      return null;
+      //removeHelper(root_addr_, key_converter_.toBytes(key)).map(V::from_bytes)
+    };
+
+    // A helper method for recursively removing a key from the B-tree.
+    func removeHelper(node_addr: Address, key: [Nat8]) : ?[Nat8] {
+      var node = loadNode(node_addr);
+
+      if(node.getAddress() != root_addr_){
+        // We're guaranteed that whenever this method is called the number
+        // of keys is >= `B`. Note that this is higher than the minimum required
+        // in a node, which is `B - 1`, and that's because this strengthened
+        // condition allows us to delete an entry in a single pass most of the
+        // time without having to back up.
+        assert(node.getEntries().size() >= Constants.B);
+      };
+
+      switch(node.getNodeType()) {
+        case(#Leaf) {
+          //switch(node.getEntries().binary_search_by(|e| e.0.as_slice().cmp(key))) {
+          switch(node.getKeyIdx([])){ // @todo
+            case(#ok(idx)) {
+              // Case 1: The node is a leaf node and the key exists in it.
+              // This is the simplest case. The key is removed from the leaf.
+              let value = node.removeEntry(idx).1;
+              length_ -= 1;
+
+              if (node.getEntries().size() == 0) {
+                if (node.getAddress() == root_addr_) {
+                  Debug.trap("Removal can only result in an empty leaf node if that node is the root");
+                };
+
+                // Deallocate the empty node.
+                allocator_.deallocate(node.getAddress());
+                root_addr_ := Constants.NULL;
+              } else {
+                node.save(memory_);
+              };
+
+              save();
+              ?value;
+            };
+            case(_) { null; }; // Key not found.
+          };
+        };
+        case(#Internal) {
+          //switch(node.getEntries().binary_search_by(|e| e.0.as_slice().cmp(key))) {
+          switch(node.getKeyIdx([])){ // @todo
+            case(#ok(idx)) {
+              // Case 2: The node is an internal node and the key exists in it.
+
+              // Check if the child that precedes `key` has at least `B` keys.
+              let left_child = loadNode(node.getChildren()[idx]);
+              if (left_child.getEntries().size() >= Constants.B) {
+                // Case 2.a: The node's left child has >= `B` keys.
+                //
+                //             parent
+                //          [..., key, ...]
+                //             /   \
+                //      [left child]   [...]
+                //       /      \
+                //    [...]     [..., key predecessor]
+                //
+                // In this case, we replace `key` with the key's predecessor from the
+                // left child's subtree, then we recursively delete the key's
+                // predecessor for the following end result:
+                //
+                //             parent
+                //      [..., key predecessor, ...]
+                //             /   \
+                //      [left child]   [...]
+                //       /      \
+                //    [...]      [...]
+
+                // Recursively delete the predecessor.
+                // TODO(EXC-1034): Do this in a single pass.
+                let predecessor = left_child.getMax(memory_);
+                ignore removeHelper(node.getChildren()[idx], predecessor.0);
+
+                // Replace the `key` with its predecessor.
+                let (_, old_value) = node.swapEntry(idx, predecessor);
+
+                // Save the parent node.
+                node.save(memory_);
+                return ?old_value;
+              };
+
+              // Check if the child that succeeds `key` has at least `B` keys.
+              let right_child = loadNode(node.getChildren()[idx + 1]);
+              if (right_child.getEntries().size() >= Constants.B) {
+                // Case 2.b: The node's right child has >= `B` keys.
+                //
+                //             parent
+                //          [..., key, ...]
+                //             /   \
+                //           [...]   [right child]
+                //              /       \
+                //        [key successor, ...]   [...]
+                //
+                // In this case, we replace `key` with the key's successor from the
+                // right child's subtree, then we recursively delete the key's
+                // successor for the following end result:
+                //
+                //             parent
+                //      [..., key successor, ...]
+                //             /   \
+                //          [...]   [right child]
+                //               /      \
+                //            [...]      [...]
+
+                // Recursively delete the successor.
+                // TODO(EXC-1034): Do this in a single pass.
+                let successor = right_child.getMin(memory_);
+                ignore removeHelper(node.getChildren()[idx + 1], successor.0);
+
+                // Replace the `key` with its successor.
+                let (_, old_value) = node.swapEntry(idx, successor);
+
+                // Save the parent node.
+                node.save(memory_);
+                return ?old_value;
+              };
+
+              // Case 2.c: Both the left child and right child have B - 1 keys.
+              //
+              //             parent
+              //          [..., key, ...]
+              //             /   \
+              //      [left child]   [right child]
+              //
+              // In this case, we merge (left child, key, right child) into a single
+              // node of size 2B - 1. The result will look like this:
+              //
+              //             parent
+              //           [...  ...]
+              //             |
+              //      [left child, `key`, right child] <= new child
+              //
+              // We then recurse on this new child to delete `key`.
+              //
+              // If `parent` becomes empty (which can only happen if it's the root),
+              // then `parent` is deleted and `new_child` becomes the new root.
+              assert(left_child.getEntries().size() == Constants.B - 1);
+              assert(right_child.getEntries().size() == Constants.B - 1);
+
+              // Merge the right child into the left child.
+              let new_child = merge(right_child, left_child, node.removeEntry(idx));
+
+              // Remove the right child from the parent node.
+              ignore node.removeChild(idx + 1);
+
+              if (node.getEntries().size() == 0) {
+                // Can only happen if this node is root.
+                assert(node.getAddress() == root_addr_);
+                assert(node.getChildren() == [new_child.getAddress()]);
+
+                root_addr_ := new_child.getAddress();
+
+                // Deallocate the root node.
+                allocator_.deallocate(node.getAddress());
+                save();
+              };
+
+              node.save(memory_);
+              new_child.save(memory_);
+
+              // Recursively delete the key.
+              removeHelper(new_child.getAddress(), key);
+            };
+            case(#err(idx)) {
+              // Case 3: The node is an internal node and the key does NOT exist in it.
+
+              // If the key does exist in the tree, it will exist in the subtree at index
+              // `idx`.
+              var child = loadNode(node.getChildren()[idx]);
+
+              if (child.getEntries().size() >= Constants.B) {
+                // The child has enough nodes. Recurse to delete the `key` from the
+                // `child`.
+                return removeHelper(node.getChildren()[idx], key);
+              };
+
+              // The child has < `B` keys. Let's see if it has a sibling with >= `B` keys.
+              var left_sibling = do {
+                if (idx > 0) {
+                  ?loadNode(node.getChildren()[idx - 1]);
+                } else {
+                  null;
+                };
+              };
+
+              var right_sibling = do {
+                if (idx + 1 < node.getChildren().size()) {
+                  ?loadNode(node.getChildren()[idx + 1]);
+                } else {
+                  null;
+                };
+              };
+
+              switch(left_sibling){
+                case(null){};
+                case(?left_sibling){
+                  if (left_sibling.getEntries().size() >= Constants.B) {
+                    // Case 3.a (left): The child has a left sibling with >= `B` keys.
+                    //
+                    //              [d] (parent)
+                    //               /   \
+                    //  (left sibling) [a, b, c]   [e, f] (child)
+                    //             \
+                    //             [c']
+                    //
+                    // In this case, we move a key down from the parent into the child
+                    // and move a key from the left sibling up into the parent
+                    // resulting in the following tree:
+                    //
+                    //              [c] (parent)
+                    //               /   \
+                    //     (left sibling) [a, b]   [d, e, f] (child)
+                    //                /
+                    //              [c']
+                    //
+                    // We then recurse to delete the key from the child.
+
+                    // Remove the last entry from the left sibling.
+                    switch(left_sibling.popEntry()){
+                      case(null) { assert(false); }; // @todo: mesage
+                      case(?(left_sibling_key, left_sibling_value)){
+
+                        // Replace the parent's entry with the one from the left sibling.
+                        let (parent_key, parent_value) = node
+                          .swapEntry(idx - 1, (left_sibling_key, left_sibling_value));
+
+                        // Move the entry from the parent into the child.
+                        child.insertEntry(0, (parent_key, parent_value));
+
+                        // Move the last child from left sibling into child.
+                        switch(left_sibling.popChild()) {
+                          case(?last_child){
+                            assert(left_sibling.getNodeType() == #Internal);
+                            assert(child.getNodeType() == #Internal);
+
+                            child.insertChild(0, last_child);
+                          };
+                          case(null){
+                            assert(left_sibling.getNodeType() == #Leaf);
+                            assert(child.getNodeType() == #Leaf);
+                          };
+                        };
+
+                        left_sibling.save(memory_);
+                        child.save(memory_);
+                        node.save(memory_);
+                        return removeHelper(child.getAddress(), key);
+                      };
+                    };
+                  };
+                };
+              };
+
+              switch(right_sibling){
+                case(null){};
+                case(?right_sibling){
+                  if (right_sibling.getEntries().size() >= Constants.B) {
+                    // Case 3.a (right): The child has a right sibling with >= `B` keys.
+                    //
+                    //              [c] (parent)
+                    //               /   \
+                    //       (child) [a, b]   [d, e, f] (left sibling)
+                    //                 /
+                    //              [d']
+                    //
+                    // In this case, we move a key down from the parent into the child
+                    // and move a key from the right sibling up into the parent
+                    // resulting in the following tree:
+                    //
+                    //              [d] (parent)
+                    //               /   \
+                    //      (child) [a, b, c]   [e, f] (right sibling)
+                    //              \
+                    //               [d']
+                    //
+                    // We then recurse to delete the key from the child.
+
+                    // Remove the first entry from the right sibling.
+                    let (right_sibling_key, right_sibling_value) =
+                      right_sibling.removeEntry(0);
+
+                    // Replace the parent's entry with the one from the right sibling.
+                    let parent_entry =
+                      node.swapEntry(idx, (right_sibling_key, right_sibling_value));
+
+                    // Move the entry from the parent into the child.
+                    child.addEntry(parent_entry);
+
+                    // Move the first child of right_sibling into `child`.
+                    switch(right_sibling.getNodeType()) {
+                      case(#Internal) {
+                        assert(child.getNodeType() == #Internal);
+                        child.addChild(right_sibling.removeChild(0));
+                      };
+                      case(#Leaf) {
+                        assert(child.getNodeType() == #Leaf);
+                      };
+                    };
+
+                    right_sibling.save(memory_);
+                    child.save(memory_);
+                    node.save(memory_);
+                    return removeHelper(child.getAddress(), key);
+                  };
+                };
+              };
+
+              // Case 3.b: neither siblings of the child have >= `B` keys.
+
+              switch(left_sibling){
+                case(null){};
+                case(?left_sibling){
+                  // Merge child into left sibling if it exists.
+
+                  let left_sibling_address = left_sibling.getAddress();
+                  ignore merge(child, left_sibling, node.removeEntry(idx - 1));
+                  // Removing child from parent.
+                  ignore node.removeChild(idx);
+
+                  if (node.getEntries().size() == 0) {
+                    allocator_.deallocate(node.getAddress());
+
+                    if (node.getAddress() == root_addr_) {
+                      // Update the root.
+                      root_addr_ := left_sibling_address;
+                      save();
+                    };
+                  } else {
+                    node.save(memory_);
+                  };
+
+                  return removeHelper(left_sibling_address, key);
+                };
+              };
+
+              switch(right_sibling){
+                case(null){};
+                case(?right_sibling){
+                  // Merge child into right sibling.
+
+                  let right_sibling_address = right_sibling.getAddress();
+                  ignore merge(child, right_sibling, node.removeEntry(idx));
+
+                  // Removing child from parent.
+                  ignore node.removeChild(idx);
+
+                  if (node.getEntries().size() == 0) {
+                    allocator_.deallocate(node.getAddress());
+
+                    if (node.getAddress() == root_addr_) {
+                      // Update the root.
+                      root_addr_ := right_sibling_address;
+                      save();
+                    };
+                  } else {
+                    node.save(memory_);
+                  };
+
+                  return removeHelper(right_sibling_address, key);
+                };
+              };
+
+              Debug.trap("At least one of the siblings must exist.");
+            };
+          };
+        };
+      };
+    };
+
+    /// Returns an iterator over the entries of the map, sorted by key.
+    // @todo
+    // public func iter() : Iter<K, V> {
+    //   Iter(self);
+    // };
+
+    // Merges one node (`source`) into another (`into`), along with a median entry.
+    //
+    // Example (values are not included for brevity):
+    //
+    // Input:
+    //   Source: [1, 2, 3]
+    //   Into: [5, 6, 7]
+    //   Median: 4
+    //
+    // Output:
+    //   [1, 2, 3, 4, 5, 6, 7] (stored in the `into` node)
+    //   `source` is deallocated.
+    func merge(source: Node, into: Node, median: Entry) : Node {
+      assert(source.getNodeType() == into.getNodeType());
+      assert(source.getEntries().size() != 0);
+      assert(into.getEntries().size() != 0);
+
+      let into_address = into.getAddress();
+      let source_address = source.getAddress();
+
+      // Figure out which node contains lower values than the other.
+      let (lower, higher) = do {
+        (source, into);
+        // @todo
+//        if (source.getEntries()[0].0 < into.getEntries()[0].0) {
+//          (source, into)
+//        } else {
+//          (into, source)
+//        };
+      };
+
+      lower.addEntry(median);
+
+      lower.appendEntries(higher.getEntries());
+
+      lower.setAddress(into_address);
+
+      // Move the children (if any exist).
+      lower.appendChildren(higher.getChildren());
+
+      lower.save(memory_);
+
+      allocator_.deallocate(source_address);
+      lower;
     };
 
     func allocateNode(node_type: NodeType) : Node {

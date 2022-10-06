@@ -1,5 +1,6 @@
 import Types "types";
 import Conversion "conversion";
+import Constants "constants";
 
 import Blob "mo:base/Blob";
 import Text "mo:base/Text";
@@ -11,6 +12,7 @@ import Iter "mo:base/Iter";
 import Nat8 "mo:base/Nat8";
 import Nat16 "mo:base/Nat16";
 import Nat32 "mo:base/Nat32";
+import Int "mo:base/Int";
 import Result "mo:base/Result";
 
 
@@ -23,10 +25,9 @@ module {
   type Address = Types.Address;
   type Bytes = Types.Bytes;
   type Memory = Types.Memory;
+  type Entry = Types.Entry;
+  type NodeType = Types.NodeType;
 
-  /// The minimum degree to use in the btree.
-  /// This constant is taken from Rust's std implementation of BTreeMap.
-  public let B : Nat64 = 6;
   let LAYOUT_VERSION: Nat8 = 1;
   let MAGIC = "BTN";
   let LEAF_NODE_TYPE: Nat8 = 0;
@@ -118,14 +119,6 @@ module {
     node_type: NodeType;
     max_key_size: Nat32;
     max_value_size: Nat32;
-  };
-
-  // Entries in the node are key-value pairs and both are blobs.
-  public type Entry = ([Nat8], [Nat8]);
-
-  public type NodeType = {
-    #Leaf;
-    #Internal;
   };
 
   /// A node of a B-Tree.
@@ -277,7 +270,11 @@ module {
     public func addChild(child: Address) {
     };
 
-    /// Add an entry to the node's entries
+    /// @todo
+    public func addEntry(entry: Entry) {
+    };
+
+    /// Add a child to the node's children
     /// @todo: see https://doc.rust-lang.org/beta/std/vec/struct.Vec.html#method.insert
     /// Should insert an element at position index within the vector, shifting all elements after it to the right.
     public func insertChild(idx: Nat, child: Address) {
@@ -289,10 +286,39 @@ module {
     public func insertEntry(idx: Nat, entry: Entry) {
     };
 
-    /// Add an entry to the node's entries
     /// @todo
-    public func popEntry() : (?Entry) {
-      ?entries_[0];
+    public func popEntry() : ?Entry {
+      null;
+    };
+
+    /// @todo
+    public func removeChild(idx: Nat) : Address {
+      children_[0];
+    };
+
+    /// @todo
+    public func popChild() : ?Address {
+      null;
+    };
+
+    /// @todo
+    public func removeEntry(idx: Nat) : Entry {
+      entries_[0];
+    };
+
+    /// @todo
+    public func appendEntries(entries: [Entry]) {
+    
+    };
+
+    /// @todo
+    public func setAddress(address: Address) {
+
+    };
+
+    /// @todo
+    public func appendChildren(children: [Address]) {
+    
     };
 
   };
@@ -306,7 +332,8 @@ module {
 
   /// The maximum number of entries per 
   func getCapacity() : Nat64 {
-    2 * B - 1;
+    assert(Constants.B > 0);
+    2 * Nat64.fromNat(Int.abs(Constants.B)) - 1;
   };
 
   // A transient data structure for reading/writing metadata into/from stable memory.

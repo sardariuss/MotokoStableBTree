@@ -17,11 +17,11 @@ module {
   // For convenience: from types module
   type Address = Types.Address;
   type BTreeMap<K, V> = BTreeMap.BTreeMap<K, V>;
+  type NodeType = Types.NodeType;
+  type Entry = Types.Entry;
   
   // For convenience: from node module
   type Node = Node.Node;
-  type NodeType = Node.NodeType;
-  type Entry = Node.Entry;
 
   /// An indicator of the current position in the map.
   public type Cursor = {

@@ -200,7 +200,7 @@ module {
     };
 
     /// Deallocates a previously allocated chunk.
-    public func deallocate(allocator: Allocator, address: Address) {
+    public func deallocate(address: Address) {
       let chunk_addr = address - SIZE_CHUNK_HEADER;
       let chunk = loadChunkHeader(chunk_addr, memory_);
 
