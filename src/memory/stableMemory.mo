@@ -1,4 +1,3 @@
-import Types "../types";
 import Constants "../constants";
 
 import StableMemory "mo:base/ExperimentalStableMemory";
@@ -7,23 +6,18 @@ import Blob "mo:base/Blob";
 
 module {
 
-  // For convenience: from types module
-  type Memory<T> = Types.Memory<T>;
-
-  public let STABLE_MEMORY : Memory<()> = {
-    size = func(memory: Memory<()>) : Nat64 { 
+  public let STABLE_MEMORY = {
+    size = func() : Nat64 { 
       StableMemory.size(); 
     };
-    store = func(memory: Memory<()>, address: Nat64, bytes: [Nat8]) : Memory<()> {
+    store = func(address: Nat64, bytes: [Nat8]) {
       // Ensure there is enough space to store the bytes
       ensure(address + Nat64.fromNat(bytes.size()));
       StableMemory.storeBlob(address, Blob.fromArray(bytes));
-      memory;
     };
-    load = func(memory: Memory<()>, address: Nat64, size: Nat) : [Nat8] {
+    load = func(address: Nat64, size: Nat) : [Nat8] {
       Blob.toArray(StableMemory.loadBlob(address, size));
     };
-    t = ();
   };
   
   func ensure(offset : Nat64) {
