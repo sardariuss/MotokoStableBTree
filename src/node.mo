@@ -20,7 +20,6 @@ module {
 
   // For convenience: from base module
   type Result<Ok, Err> = Result.Result<Ok, Err>;
-
   // For convenience: from types module
   type Address = Types.Address;
   type Bytes = Types.Bytes;
@@ -246,7 +245,6 @@ module {
     };
 
     /// Swaps the entry at index `idx` with the given entry, returning the old entry.
-    /// @todo: verify this
     public func swapEntry(idx: Nat, entry: Entry) : Entry {
       let old_entry = entries_[idx];
       // @todo: shall we have an array of var Entry ?

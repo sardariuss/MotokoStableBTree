@@ -97,8 +97,7 @@ module {
       memory = memory;
     });
 
-    // @todo
-    // btree.save();
+    btree.save();
 
     btree;
   };
@@ -279,9 +278,10 @@ module {
           };
         };
       };
-      // @todo
-      // #ok(insertNonFull(root, key, value).map(v))
-      #ok(?v);
+      #ok(Option.map<[Nat8], V>(
+        insertNonFull(root, key, value),
+        func(bytes: [Nat8]) : V { value_converter_.fromBytes(bytes); })
+      );
     };
 
     // Inserts an entry into a node that is *not full*.
@@ -335,8 +335,7 @@ module {
                   };
                   case(#err(_)){
                     // The child is full. Split the child.
-                    // @todo
-                    //splitChild(idx);
+                    splitChild(node, idx);
 
                     // The children have now changed. Search again for
                     // the child where we need to store the entry in.
@@ -414,9 +413,11 @@ module {
     public func get(key: K) : ?V {
       if (root_addr_ == Constants.NULL) {
         return null;
-      };// @todo
-      //getHelper(root_addr_, key_converter_.toBytes(key)).map(V::from_bytes);
-      return null;
+      };
+      Option.map<[Nat8], V>(
+        getHelper(root_addr_, key_converter_.toBytes(key)),
+        func(bytes: [Nat8]) : V { value_converter_.fromBytes(bytes); }
+      );
     };
 
     func getHelper(node_addr: Address, key: [Nat8]) : ?[Nat8] {
@@ -451,10 +452,10 @@ module {
       if (root_addr_ == Constants.NULL) {
         return null;
       };
-
-      // @todo
-      return null;
-      //removeHelper(root_addr_, key_converter_.toBytes(key)).map(V::from_bytes)
+      Option.map<[Nat8], V>(
+        removeHelper(root_addr_, key_converter_.toBytes(key)),
+        func(bytes: [Nat8]) : V { value_converter_.fromBytes(bytes); }
+      );
     };
 
     // A helper method for recursively removing a key from the B-tree.
@@ -678,7 +679,8 @@ module {
 
                     // Remove the last entry from the left sibling.
                     switch(left_sibling.popEntry()){
-                      case(null) { assert(false); }; // @todo: mesage
+                      // We tested before that the entries size is not zero, this should never happen.
+                      case(null) { Debug.trap("The left sibling entries must not be empty."); };
                       case(?(left_sibling_key, left_sibling_value)){
 
                         // Replace the parent's entry with the one from the left sibling.
@@ -969,7 +971,7 @@ module {
     };
 
     // Saves the map to memory.
-    func save() {
+    public func save() {
       let header : BTreeHeader = {
         magic = Blob.toArray(Text.encodeUtf8(MAGIC));
         version = LAYOUT_VERSION;

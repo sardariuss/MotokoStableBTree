@@ -34,7 +34,6 @@ module {
   public func empty<K, V>(map: IBTreeMap<K, V>) : Iter<K, V>{
     Iter({
       map;
-      // Initialize the cursors with the address of the root of the map.
       cursors = [];
       prefix = null;
       offset = null;
@@ -44,7 +43,6 @@ module {
   public func newWithPrefix<K, V>(map: IBTreeMap<K, V>, prefix: [Nat8], cursors: [Cursor]) : Iter<K, V>{
     Iter({
       map;
-      // Initialize the cursors with the address of the root of the map.
       cursors;
       prefix = ?prefix;
       offset = null;
@@ -54,7 +52,6 @@ module {
   public func newWithPrefixAndOffset<K, V>(map: IBTreeMap<K, V>, prefix: [Nat8], offset: [Nat8], cursors: [Cursor]) : Iter<K, V>{
     Iter({
       map;
-      // Initialize the cursors with the address of the root of the map.
       cursors;
       prefix = ?prefix;
       offset = ?offset;
@@ -69,7 +66,8 @@ module {
   };
 
   /// An iterator over the entries of a [`BTreeMap`].
-  // #[must_use = "iterators are lazy and do nothing unless consumed"] @todo
+  /// Iterators are lazy and do nothing unless consumed
+  /// @todo: verify that statement
   public class Iter<K, V>(variables: IterVariables<K, V>) = self {
     
     // A reference to the map being iterated on. // @todo: pretty sure objects are managed as pointer in Motoko, so nothing to do?
@@ -182,9 +180,7 @@ module {
                       };
                     };
                   };
-                  // @todo: requires the storable functions for key and values (will be stored in the btreemap)
-                  //return ?(entry.0, entry.1);
-                  return null;
+                  return ?(map_.getKeyConverter().fromBytes(entry.0), map_.getValueConverter().fromBytes(entry.1));
                 };
               };
             };

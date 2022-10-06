@@ -14,7 +14,6 @@ module {
     toBytes: (T) -> [Nat8];
   };
 
-  // @todo: rename in IMemory
   public type Memory = {
     size: () -> Nat64;
     store: (Nat64, [Nat8]) -> ();
