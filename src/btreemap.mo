@@ -3,6 +3,7 @@ import Allocator "allocator";
 import Conversion "conversion";
 import Node "node";
 import Constants "constants";
+import Iter "iter";
 
 import Result "mo:base/Result";
 import Option "mo:base/Option";
@@ -17,7 +18,6 @@ module {
 
   // For convenience: from base module
   type Result<Ok, Err> = Result.Result<Ok, Err>;
-
   // For convenience: from types module
   type Address = Types.Address;
   type Bytes = Types.Bytes;
@@ -26,10 +26,11 @@ module {
   type InsertError = Types.InsertError;
   type NodeType = Types.NodeType;
   type Entry = Types.Entry;
-
+  type Cursor = Types.Cursor;
   // For convenience: from node module
   type Node = Node.Node;
-
+  // For convenience: from iter module
+  type Iter<K, V> = Iter.Iter<K, V>;
   // For convenience: from allocator module
   type Allocator = Allocator.Allocator;
 
@@ -174,7 +175,7 @@ module {
     memory : Memory;
   };
 
-  public class BTreeMap<K, V>(members: BTreeMapMembers<K, V>) {
+  public class BTreeMap<K, V>(members: BTreeMapMembers<K, V>) = self {
     
     /// Members
     // The address of the root node. If a root node doesn't exist, the address is set to NULL.
@@ -827,11 +828,84 @@ module {
       };
     };
 
-    /// Returns an iterator over the entries of the map, sorted by key.
-    // @todo
-    // public func iter() : Iter<K, V> {
-    //   Iter(self);
-    // };
+    // Returns an iterator over the entries of the map, sorted by key.
+    public func iter() : Iter<K, V> {
+      Iter.new(self);
+    };
+
+    /// Returns an iterator over the entries in the map where keys begin with the given `prefix`.
+    /// If the optional `offset` is set, the iterator returned will start from the entry that
+    /// contains this `offset` (while still iterating over all remaining entries that begin
+    /// with the given `prefix`).
+    public func range(prefix: [Nat8], offset: ?[Nat8]) : Iter<K, V> {
+      if (root_addr_ == Constants.NULL) {
+        // Map is empty.
+        return Iter.empty(self);
+      };
+
+      var node = loadNode(root_addr_);
+      let cursors : Buffer.Buffer<Cursor> = Buffer.Buffer<Cursor>(0);
+
+      loop {
+        // Look for the prefix in the node.
+        var pivot = prefix;
+        switch(offset) {
+          case(null) {};
+          case(?offset){
+            // @todo
+            //pivot.extend_from_slice(offset);
+          };
+        };
+        //switch(node.getEntries().binary_search_by(|e| e.0.cmp(pivot))) {
+        let idx = switch(node.getKeyIdx([])){ // @todo
+          case(#err(idx)) { idx; };
+          case(#ok(idx)) { idx; };
+        };
+
+        // If `prefix` is a key in the node, then `idx` would return its
+        // location. Otherwise, `idx` is the location of the next key in
+        // lexicographical order.
+
+        // Load the next child of the node to visit if it exists.
+        // This is done first to avoid cloning the node.
+        let child = switch(node.getNodeType()) {
+          case(#Internal) {
+            // Note that loading a child node cannot fail since
+            // len(children) = len(entries) + 1
+            ?loadNode(node.getChildren()[idx]);
+          };
+          case(#Leaf) { null; };
+        };
+
+        // If the prefix is found in the node, then add a cursor starting from its index.
+        if (idx < node.getEntries().size()){ // @todo: and node.getEntries()[idx].0.starts_with(prefix)) {
+          cursors.add(#Node {
+            node;
+            next = #Entry(Nat64.fromNat(idx));
+          });
+        };
+
+        switch(child) {
+          case(null) {
+            // Leaf node. Return an iterator with the found cursors.
+            switch(offset) {
+              case(?offset) {
+                return Iter.newWithPrefixAndOffset(
+                  self, prefix, offset, cursors.toArray()
+                );
+              };
+              case(null) {
+                return Iter.newWithPrefix(self, prefix, cursors.toArray());
+              };
+            };
+          };
+          case(?child) {
+            // Iterate over the child node.
+            node := child;
+          };
+        };
+      };
+    };
 
     // Merges one node (`source`) into another (`into`), along with a median entry.
     //
@@ -890,7 +964,6 @@ module {
       });
     };
 
-    // @todo: need to be public for iter to use it
     public func loadNode(address: Address) : Node {
       Node.load(address, memory_, max_key_size_, max_value_size_);
     };

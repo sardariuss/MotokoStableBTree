@@ -21,6 +21,18 @@ module {
     load: (Nat64, Nat) -> [Nat8];
   };
 
+  /// An indicator of the current position in the map.
+  public type Cursor = {
+    #Address: Address;
+    #Node: { node: INode; next: Index; };
+  };
+
+  /// An index into a node's child or entry.
+  public type Index = {
+    #Child: Nat64;
+    #Entry: Nat64;
+  };
+
   public type IIter<K, V> = {
     next: () -> ?(K, V);
   };

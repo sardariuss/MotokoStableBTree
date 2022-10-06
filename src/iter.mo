@@ -1,7 +1,6 @@
 import Types "types";
 import Node "node";
 import Constants "constants";
-import BTreeMap "btreemap";
 
 import Blob "mo:base/Blob";
 import Text "mo:base/Text";
@@ -12,70 +11,83 @@ import Array "mo:base/Array";
 
 module {
 
-  // For convenience: from base module
-
   // For convenience: from types module
   type Address = Types.Address;
-  type BTreeMap<K, V> = BTreeMap.BTreeMap<K, V>;
   type NodeType = Types.NodeType;
   type Entry = Types.Entry;
-  
+  type IBTreeMap<K, V> = Types.IBTreeMap<K, V>;
+  type Cursor = Types.Cursor;
+  type Index = Types.Index;  
   // For convenience: from node module
   type Node = Node.Node;
 
-  /// An indicator of the current position in the map.
-  public type Cursor = {
-    #Address: Address;
-    #Node: { node: Node; next: Index; };
+  public func new<K, V>(map: IBTreeMap<K, V>) : Iter<K, V>{
+    Iter({
+      map;
+      // Initialize the cursors with the address of the root of the map.
+      cursors = [#Address(map.getRootAddr())];
+      prefix = null;
+      offset = null;
+    });
   };
 
-  /// An index into a node's child or entry.
-  public type Index = {
-    #Child: Nat64;
-    #Entry: Nat64;
+  public func empty<K, V>(map: IBTreeMap<K, V>) : Iter<K, V>{
+    Iter({
+      map;
+      // Initialize the cursors with the address of the root of the map.
+      cursors = [];
+      prefix = null;
+      offset = null;
+    });
+  };
+
+  public func newWithPrefix<K, V>(map: IBTreeMap<K, V>, prefix: [Nat8], cursors: [Cursor]) : Iter<K, V>{
+    Iter({
+      map;
+      // Initialize the cursors with the address of the root of the map.
+      cursors;
+      prefix = ?prefix;
+      offset = null;
+    });
+  };
+
+  public func newWithPrefixAndOffset<K, V>(map: IBTreeMap<K, V>, prefix: [Nat8], offset: [Nat8], cursors: [Cursor]) : Iter<K, V>{
+    Iter({
+      map;
+      // Initialize the cursors with the address of the root of the map.
+      cursors;
+      prefix = ?prefix;
+      offset = ?offset;
+    });
+  };
+
+  type IterVariables<K, V> = {
+    map: IBTreeMap<K, V>;
+    cursors: [Cursor];
+    prefix: ?[Nat8];
+    offset: ?[Nat8];
   };
 
   /// An iterator over the entries of a [`BTreeMap`].
   // #[must_use = "iterators are lazy and do nothing unless consumed"] @todo
-  // @todo: have different functions for init like in Rust
-  class Iter<K, V>(map: BTreeMap<K, V>, cursors: ?[Cursor], prefix: ?[Nat8], offset: ?[Nat8]) = Self {
+  public class Iter<K, V>(variables: IterVariables<K, V>) = self {
     
-    // A reference to the map being iterated on. // @todo: here it's a copy, is there any alternative in Motoko ?
-    let map_: BTreeMap<K, V> = map;
+    // A reference to the map being iterated on. // @todo: pretty sure objects are managed as pointer in Motoko, so nothing to do?
+    let map_: IBTreeMap<K, V> = variables.map;
 
     // A stack of cursors indicating the current position in the tree.
     var cursors_ = Stack.Stack<Cursor>();
-    switch(cursors){
-      case(null) { 
-        if (map.getRootAddr() != Constants.NULL) {
-          cursors_.push(#Address(map.getRootAddr()));
-        };
-      };
-      case(?cursors) {
-        for (cursor in Array.vals(cursors)) {
-          cursors_.push(cursor);
-        };
-      };
+    for (cursor in Array.vals(variables.cursors)) {
+      cursors_.push(cursor);
     };
 
     // An optional prefix that the keys of all the entries returned must have.
     // Iteration stops as soon as it runs into a key that doesn't have this prefix.
-    var prefix_: ?[Nat8] = switch(cursors){
-      case(null) { null; };
-      case(_) { prefix };
-    };
+    var prefix_: ?[Nat8] = variables.prefix;
 
     // An optional offset to begin iterating from in the keys with the same prefix.
     // Used only in the case that prefix is also set.
-    var offset_: ?[Nat8] = switch(cursors){
-      case(null) { null; };
-      case(_) {
-        switch(prefix){
-          case(null) { null; };
-          case(_) { offset };
-        };
-      };
-    };
+    var offset_: ?[Nat8] = variables.offset;
 
     public func next() : ?(K, V) {
       switch(cursors_.pop()) {
@@ -96,7 +108,7 @@ module {
                   node;
                 });
               };
-              return Self.next();
+              return self.next();
             };
             case(#Node({node; next;})){
               switch(next){
@@ -116,12 +128,12 @@ module {
                   let child_address = node.getChildren()[Nat64.toNat(child_idx)];
                   cursors_.push(#Address(child_address));
 
-                  return Self.next();
+                  return self.next();
                 };
                 case(#Entry(entry_idx)){
                   if (Nat64.toNat(entry_idx) >= node.getEntries().size()) {
                     // No more entries to iterate on in this node.
-                    return Self.next();
+                    return self.next();
                   };
 
                   // Take the entry from the node. It's swapped with an empty element to
