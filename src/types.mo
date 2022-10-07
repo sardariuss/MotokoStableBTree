@@ -60,17 +60,19 @@ module {
     getKeyIdx: ([Nat8]) -> Result<Nat, Nat>;
     getChild: (Nat) -> Address;
     getEntry: (Nat) -> Entry;
+    setChildren: (Buffer<Address>) -> ();
+    setEntries: (Buffer<Entry>) -> ();
+    setAddress: (Address) -> ();
     addChild: (Address) -> ();
     addEntry: (Entry) -> ();
+    popEntry: () -> ?Entry;
+    popChild: () -> ?Address;
     insertChild: (Nat, Address) -> ();
     insertEntry: (Nat, Entry) -> ();
-    popEntry: () -> ?Entry;
     removeChild: (Nat) -> Address;
-    popChild: () -> ?Address;
     removeEntry: (Nat) -> Entry;
-    appendEntries: (Buffer<Entry>) -> ();
-    setAddress: (Address) -> ();
     appendChildren: (Buffer<Address>) -> ();
+    appendEntries: (Buffer<Entry>) -> ();
   };
 
   public type IAllocator = {

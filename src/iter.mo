@@ -9,6 +9,8 @@ import Nat64 "mo:base/Nat64";
 import Debug "mo:base/Debug";
 import Stack "mo:base/Stack";
 import Array "mo:base/Array";
+import Nat8 "mo:base/Nat8";
+import Order "mo:base/Order";
 
 module {
 
@@ -68,10 +70,9 @@ module {
 
   /// An iterator over the entries of a [`BTreeMap`].
   /// Iterators are lazy and do nothing unless consumed
-  /// @todo: verify that statement
   public class Iter<K, V>(variables: IterVariables<K, V>) = self {
     
-    // A reference to the map being iterated on. // @todo: pretty sure objects are managed as pointer in Motoko, so nothing to do?
+    // A reference to the map being iterated on.
     let map_: IBTreeMap<K, V> = variables.map;
 
     // A stack of cursors indicating the current position in the tree.
@@ -137,7 +138,6 @@ module {
 
                   // Take the entry from the node. It's swapped with an empty element to
                   // avoid cloning.
-                  // @todo: verify that
                   let entry = node.swapEntry(Nat64.toNat(entry_idx), ([], []));
 
                   // Add to the cursors the next element to be traversed.
@@ -156,11 +156,8 @@ module {
                   switch(prefix_){
                     case(null) {};
                     case(?prefix){
-                      var starts_with : Bool = true;
-                      for (i in Array.keys(prefix)){
-                        starts_with := starts_with and (entry.0[i] == prefix[i]);
-                      };
-                      if (not starts_with){
+                      if (not Utils.startsWith(entry.0, prefix, Nat8.compare)){
+                        // Clear all cursors to avoid needless work in subsequent calls.
                         cursors_ := Stack.Stack<Cursor>();
                         return null;
                       } else switch(offset_) {
@@ -169,11 +166,8 @@ module {
 
                           let prefix_with_offset = Utils.toBuffer<Nat8>(prefix);
                           prefix_with_offset.append(Utils.toBuffer<Nat8>(offset));
-                          
                           // Clear all cursors to avoid needless work in subsequent calls.
-                          // @todo: need to be able to lexicographically compare entry.0 with prefix_with_offset
-                          // see https://doc.rust-lang.org/std/cmp/trait.Ord.html#lexicographical-comparison
-                          if (false) {
+                          if (Order.isLess(Node.compareEntryKeys(entry, (prefix_with_offset.toArray(), [])))){  
                             cursors_ := Stack.Stack<Cursor>();
                             return null;
                           };

@@ -1,4 +1,5 @@
 import Buffer "mo:base/Buffer";
+import Result "mo:base/Result";
 import Array "mo:base/Array";
 import List "mo:base/List";
 import Debug "mo:base/Debug";
@@ -11,6 +12,7 @@ module {
   type Buffer<T> = Buffer.Buffer<T>;
   type Order = Order.Order;
   type Iter<T> = Iter.Iter<T>;
+  type Result<K, V> = Result.Result<K, V>;
 
   /// Creates a buffer from an array
   public func toBuffer<T>(x :[T]) : Buffer<T>{
@@ -24,54 +26,48 @@ module {
   /// Splits the buffers into two at the given index.
   /// The right buffer contains the element at the given index
   /// similarly to the Rust's vec::split_off method
-  public func split<T>(idx: Nat, buffer: Buffer<T>) : (Buffer<T>, Buffer<T>){
-    let left = buffer;
-    var right = List.nil<T>();
-    while(left.size() > idx){
-      switch(left.removeLast()){
+  public func splitOff<T>(idx: Nat, buffer: Buffer<T>) : Buffer<T>{
+    var tail = List.nil<T>();
+    while(buffer.size() > idx){
+      switch(buffer.removeLast()){
         case(null) { assert(false); };
         case(?last){
-          right := List.push<T>(last, right);
+          tail := List.push<T>(last, tail);
         };
       };
     };
-    (left, toBuffer<T>(List.toArray(List.reverse<T>(right))));
+    toBuffer<T>(List.toArray(List.reverse<T>(tail)));
   };
 
   /// Insert an element into the buffer at given index
-  /// @todo: shall this method return the new buffer instead ?
   public func insert<T>(idx: Nat, elem: T, buffer: Buffer<T>) {
-    buffer.clear();
-    let (left, right) = split<T>(idx, buffer);
-    buffer.append(left);
+    let tail = splitOff(idx, buffer);
     buffer.add(elem);
-    buffer.append(right);
+    buffer.append(tail);
   };
 
   /// Remove an element from the buffer at the given index
   /// Traps if index is out of bounds.
   public func remove<T>(idx: Nat, buffer: Buffer<T>) : T {
-    buffer.clear();
-    let (left, right) = split<T>(idx + 1, buffer);
-    switch(left.removeLast()){
+    let tail = splitOff(idx + 1, buffer);
+    switch(tail.removeLast()){
       case(null) { Debug.trap("Index is out of bounds."); };
       case(?elem) {
-        buffer.append(left);
-        buffer.append(right);
+        buffer.append(tail);
         elem;
       };
     };
   };
 
   /// Searches the element in the ordered array.
-  public func binarySearch<T>(array: [T], order: (T, T) -> Order, elem: T) : ?Nat {
+  public func binarySearch<T>(array: [T], order: (T, T) -> Order, elem: T) : Result<Nat, Nat> {
     search(array, order, elem, 0, array.size());
   };
 
   /// Searches recursively the element in the ordered array.
-  func search<T>(array: [T], order: (T, T) -> Order, elem: T, idx: Nat, window: Nat) : ?Nat {
+  func search<T>(array: [T], order: (T, T) -> Order, elem: T, idx: Nat, window: Nat) : Result<Nat, Nat> {
     if (window == 0) {
-      return null;
+      return #err(idx);
     };
     let half_window = window / 2;
     let mid_idx = idx + half_window;
@@ -79,7 +75,7 @@ module {
     switch(order(middle_elem, elem)){
       case(#less)    { search(array, order, elem, mid_idx, half_window); };
       case(#greater) { search(array, order, elem, idx,     half_window); };
-      case(#equal)   {                     ?mid_idx;                     };
+      case(#equal)   {                   #ok(mid_idx);                   };
     };
   };
 

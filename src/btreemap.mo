@@ -13,6 +13,7 @@ import Nat32 "mo:base/Nat32";
 import Debug "mo:base/Debug";
 import Array "mo:base/Array";
 import Nat64 "mo:base/Nat64";
+import Order "mo:base/Order";
 
 module {
 
@@ -266,7 +267,6 @@ module {
                 root_addr_ := new_root.getAddress();
                 save();
       
-                // @todo: check if the split shouldn't be done before adding the root as child
                 // Split the old (full) root. 
                 splitChild(new_root, 0);
       
@@ -290,8 +290,7 @@ module {
       assert(not node.isFull());
 
       // Look for the key in the node.
-      //switch(node.entries.binary_search_by(|e| e.0.cmp(&key)) {
-      switch(node.getKeyIdx([])){ // @todo
+      switch(node.getKeyIdx(key)){
         case(#ok(idx)){
           // The key is already in the node.
           // Overwrite it and return the previous value.
@@ -339,8 +338,8 @@ module {
 
                     // The children have now changed. Search again for
                     // the child where we need to store the entry in.
-                    //let idx = node.get_key_idx(&key).unwrap_or_else(|idx| idx);
-                    child := loadNode(node.getChild(0)); // @todo
+                    let index = Option.get(Result.toOption(node.getKeyIdx(key)), idx);
+                    child := loadNode(node.getChild(index));
                   };
                 };
               };
@@ -384,12 +383,10 @@ module {
       assert(sibling.getNodeType() == full_child.getNodeType());
 
       // Move the values above the median into the new sibling.
-      // @todo
-      //sibling.entries = full_child.entries.split_off(B as usize); 
+      sibling.setEntries(Utils.splitOff<Entry>(Constants.B, full_child.getEntries()));
 
       if (full_child.getNodeType() == #Internal) {
-        // @todo
-        //sibling.children = full_child.children.split_off(B as usize);
+        sibling.setChildren(Utils.splitOff<Address>(Constants.B, full_child.getChildren()));
       };
 
       // Add sibling as a new child in the node. 
@@ -422,9 +419,8 @@ module {
 
     func getHelper(node_addr: Address, key: [Nat8]) : ?[Nat8] {
       let node = loadNode(node_addr);
-      //switch(node.getEntries().binary_search_by(|e| e.0.as_slice().cmp(key))) {
-      switch(node.getKeyIdx([])){ // @todo
-        case(#ok(idx)) { ?node.getEntries().get(idx).1; };
+      switch(node.getKeyIdx(key)){
+        case(#ok(idx)) { ?node.getEntry(idx).1; };
         case(#err(idx)) {
           switch(node.getNodeType()) {
             case(#Leaf) { null; }; // Key not found.
@@ -473,8 +469,7 @@ module {
 
       switch(node.getNodeType()) {
         case(#Leaf) {
-          //switch(node.getEntries().binary_search_by(|e| e.0.as_slice().cmp(key))) {
-          switch(node.getKeyIdx([])){ // @todo
+          switch(node.getKeyIdx(key)){
             case(#ok(idx)) {
               // Case 1: The node is a leaf node and the key exists in it.
               // This is the simplest case. The key is removed from the leaf.
@@ -500,8 +495,7 @@ module {
           };
         };
         case(#Internal) {
-          //switch(node.getEntries().binary_search_by(|e| e.0.as_slice().cmp(key))) {
-          switch(node.getKeyIdx([])){ // @todo
+          switch(node.getKeyIdx(key)){
             case(#ok(idx)) {
               // Case 2: The node is an internal node and the key exists in it.
 
@@ -596,8 +590,9 @@ module {
               //
               // If `parent` becomes empty (which can only happen if it's the root),
               // then `parent` is deleted and `new_child` becomes the new root.
-              assert(left_child.getEntries().size() == Constants.B - 1);
-              assert(right_child.getEntries().size() == Constants.B - 1);
+              let num_keys : Int = Constants.B - 1;
+              assert(left_child.getEntries().size() == num_keys);
+              assert(right_child.getEntries().size() == num_keys);
 
               // Merge the right child into the left child.
               let new_child = merge(right_child, left_child, node.removeEntry(idx));
@@ -850,16 +845,14 @@ module {
 
       loop {
         // Look for the prefix in the node.
-        var pivot = prefix;
+        let pivot = Utils.toBuffer<Nat8>(prefix);
         switch(offset) {
           case(null) {};
           case(?offset){
-            // @todo
-            //pivot.extend_from_slice(offset);
+            pivot.append(Utils.toBuffer(offset));
           };
         };
-        //switch(node.getEntries().binary_search_by(|e| e.0.cmp(pivot))) {
-        let idx = switch(node.getKeyIdx([])){ // @todo
+        let idx = switch(node.getKeyIdx(pivot.toArray())){
           case(#err(idx)) { idx; };
           case(#ok(idx)) { idx; };
         };
@@ -880,7 +873,7 @@ module {
         };
 
         // If the prefix is found in the node, then add a cursor starting from its index.
-        if (idx < node.getEntries().size()){ // @todo: and node.getEntries().get(idx).0.starts_with(prefix)) {
+        if (idx < node.getEntries().size() and Utils.startsWith(node.getEntry(idx).0, prefix, Nat8.compare)){
           cursors.add(#Node {
             node;
             next = #Entry(Nat64.fromNat(idx));
@@ -931,13 +924,11 @@ module {
 
       // Figure out which node contains lower values than the other.
       let (lower, higher) = do {
-        (source, into);
-        // @todo
-//        if (source.getEntries().get(0).0 < into.getEntries().get(0).0) {
-//          (source, into)
-//        } else {
-//          (into, source)
-//        };
+        if (Order.isLess(Node.compareEntryKeys(source.getEntry(0), into.getEntry(0)))){
+          (source, into);
+        } else {
+          (into, source);
+        };
       };
 
       lower.addEntry(median);

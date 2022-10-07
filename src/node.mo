@@ -17,7 +17,6 @@ import Int "mo:base/Int";
 import Result "mo:base/Result";
 import Order "mo:base/Order";
 
-
 module {
 
   // For convenience: from base module
@@ -109,7 +108,8 @@ module {
     let entry_size = Nat64.fromNat(U32_SIZE) + max_key_size_n64 + max_value_size_n64 + Nat64.fromNat(U32_SIZE);
     let child_size = Nat64.fromNat(ADDRESS_SIZE);
 
-    // @todo: verify the logic here, but at first sight it seems that Bytes::from implementation in rust does nothing useful but wrap the nat64 type
+    // @todo: verify the logic here, but at first sight it seems that Bytes::from 
+    // implementation in Rust does nothing useful but wrap the nat64 type
     node_header_size
       + getCapacity() * entry_size
       + (getCapacity() + 1) * child_size;
@@ -169,13 +169,8 @@ module {
       // We should never be saving an empty node.
       assert((entries_.size() != 0) or (children_.size() != 0));
 
-      // @todo: put this somewhere else
-      let compareEntries = func(a: Entry, b: Entry) : Order {
-        Utils.compare(a.0, b.0, Nat8.compare);
-      };
-
       // Assert entries are sorted in strictly increasing order.
-      if (Utils.isSortedInIncreasingOrder(entries_.toArray(), compareEntries)) {
+      if (Utils.isSortedInIncreasingOrder(entries_.toArray(), compareEntryKeys)) {
         Debug.trap("The buffer is not sorted in increasing order.");
       };
 
@@ -258,8 +253,7 @@ module {
     /// Swaps the entry at index `idx` with the given entry, returning the old entry.
     public func swapEntry(idx: Nat, entry: Entry) : Entry {
       let old_entry = entries_.get(idx);
-      // @todo: shall we have an array of var Entry ?
-      //entries_.get(idx) := entry;
+      entries_.put(idx, entry);
       old_entry;
     };
 
@@ -270,8 +264,7 @@ module {
     /// returned, containing the index where a matching key could be inserted
     /// while maintaining sorted order.
     public func getKeyIdx(key: [Nat8]) : Result<Nat, Nat> {
-      // self.entries.binary_search_by(|e| e.0.as_slice().cmp(key)) // @todo
-      #ok(0);
+      Utils.binarySearch(entries_.toArray(), compareEntryKeys, (key, []));
     };
 
     /// Get the child at the given index. Traps if the index is superior than the number of children.
@@ -282,6 +275,21 @@ module {
     /// Get the entry at the given index. Traps if the index is superior than the number of entries.
     public func getEntry(idx: Nat) : Entry {
       entries_.get(idx);
+    };
+
+    /// Set the node's children
+    public func setChildren(children: Buffer<Address>) {
+      children_ := children;
+    };
+
+    /// Set the node's entries
+    public func setEntries(entries: Buffer<Entry>) {
+      entries_ := entries;
+    };
+
+    /// Set the node's address
+    public func setAddress(address: Address) {
+      address_ := address;
     };
 
     /// Add a child at the end of the node's children.
@@ -334,11 +342,11 @@ module {
       entries_.append(entries);
     };
 
-    /// Set the node's address
-    public func setAddress(address: Address) {
-      address_ := address;
-    };
+  };
 
+  /// Compare the two entries using their keys
+  public func compareEntryKeys(a: Entry, b: Entry) : Order {
+    Utils.compare(a.0, b.0, Nat8.compare);
   };
 
   /// Deduce the node type based on the node header
@@ -350,8 +358,7 @@ module {
 
   /// The maximum number of entries per 
   func getCapacity() : Nat64 {
-    assert(Constants.B > 0);
-    2 * Nat64.fromNat(Int.abs(Constants.B)) - 1;
+    2 * Nat64.fromNat(Constants.B) - 1;
   };
 
   // A transient data structure for reading/writing metadata into/from stable memory.
