@@ -1,3 +1,5 @@
+import Utils "utils";
+
 import Buffer "mo:base/Buffer";
 import Nat "mo:base/Nat";
 import Nat8 "mo:base/Nat8";
@@ -12,8 +14,6 @@ import List "mo:base/List";
 import Text "mo:base/Text";
 import Int "mo:base/Int";
 import Array "mo:base/Array";
-
-import Types "types";
 
 module {
 
@@ -208,8 +208,8 @@ module {
       bytes := List.push<Nat8>(a, bytes);
       test := b > 0;
     };
-    let result = Types.toBuffer<Nat8>([c]);
-    result.append(Types.toBuffer<Nat8>(List.toArray<Nat8>(bytes)));
+    let result = Utils.toBuffer<Nat8>([c]);
+    result.append(Utils.toBuffer<Nat8>(List.toArray<Nat8>(bytes)));
     result.toArray();
     //Array.append<Nat8>([c],List.toArray<Nat8>(bytes));
   };

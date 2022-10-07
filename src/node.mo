@@ -1,6 +1,7 @@
 import Types "types";
 import Conversion "conversion";
 import Constants "constants";
+import Utils "utils";
 
 import Blob "mo:base/Blob";
 import Text "mo:base/Text";
@@ -14,6 +15,7 @@ import Nat16 "mo:base/Nat16";
 import Nat32 "mo:base/Nat32";
 import Int "mo:base/Int";
 import Result "mo:base/Result";
+import Order "mo:base/Order";
 
 
 module {
@@ -21,6 +23,7 @@ module {
   // For convenience: from base module
   type Result<Ok, Err> = Result.Result<Ok, Err>;
   type Buffer<T> = Buffer.Buffer<T>;
+  type Order = Order.Order;
   // For convenience: from types module
   type Address = Types.Address;
   type Bytes = Types.Bytes;
@@ -138,8 +141,8 @@ module {
     
     /// Members
     var address_ : Address = variables.address;
-    var entries_ : Buffer<Entry> = Types.toBuffer(variables.entries);
-    var children_ : Buffer<Address> = Types.toBuffer(variables.children);
+    var entries_ : Buffer<Entry> = Utils.toBuffer(variables.entries);
+    var children_ : Buffer<Address> = Utils.toBuffer(variables.children);
     let node_type_ : NodeType = variables.node_type;
     let max_key_size_ : Nat32 = variables.max_key_size;
     let max_value_size_ : Nat32 = variables.max_value_size;
@@ -163,11 +166,18 @@ module {
         };
       };
 
-      // We should never be saving an empty 
+      // We should never be saving an empty node.
       assert((entries_.size() != 0) or (children_.size() != 0));
 
+      // @todo: put this somewhere else
+      let compareEntries = func(a: Entry, b: Entry) : Order {
+        Utils.compare(a.0, b.0, Nat8.compare);
+      };
+
       // Assert entries are sorted in strictly increasing order.
-      //assert(entries_.windows(2).all(|e| e[0].0 < e[1].0)); // @todo
+      if (Utils.isSortedInIncreasingOrder(entries_.toArray(), compareEntries)) {
+        Debug.trap("The buffer is not sorted in increasing order.");
+      };
 
       let header = {
         magic = Blob.toArray(Text.encodeUtf8(MAGIC));
@@ -296,22 +306,22 @@ module {
 
     /// Insert a child into the node's children at the given index.
     public func insertChild(idx: Nat, child: Address) {
-      Types.insert(idx, child, children_);
+      Utils.insert(idx, child, children_);
     };
 
     /// Insert an entry into the node's entries at the given index.
     public func insertEntry(idx: Nat, entry: Entry) {
-      Types.insert(idx, entry, entries_);
+      Utils.insert(idx, entry, entries_);
     };
 
     /// Remove the child from the node's children at the given index.
     public func removeChild(idx: Nat) : Address {
-      Types.remove(idx, children_);
+      Utils.remove(idx, children_);
     };
 
     /// Remove the entry from the node's entries at the given index.
     public func removeEntry(idx: Nat) : Entry {
-      Types.remove(idx, entries_);
+      Utils.remove(idx, entries_);
     };
 
     /// Append the given children to the node's children

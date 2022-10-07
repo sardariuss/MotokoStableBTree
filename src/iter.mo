@@ -1,6 +1,7 @@
 import Types "types";
 import Node "node";
 import Constants "constants";
+import Utils "utils";
 
 import Blob "mo:base/Blob";
 import Text "mo:base/Text";
@@ -166,8 +167,8 @@ module {
                         case(null) {};
                         case(?offset){
 
-                          let prefix_with_offset = Types.toBuffer<Nat8>(prefix);
-                          prefix_with_offset.append(Types.toBuffer<Nat8>(offset));
+                          let prefix_with_offset = Utils.toBuffer<Nat8>(prefix);
+                          prefix_with_offset.append(Utils.toBuffer<Nat8>(offset));
                           
                           // Clear all cursors to avoid needless work in subsequent calls.
                           // @todo: need to be able to lexicographically compare entry.0 with prefix_with_offset
