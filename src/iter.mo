@@ -81,11 +81,11 @@ module {
 
     // An optional prefix that the keys of all the entries returned must have.
     // Iteration stops as soon as it runs into a key that doesn't have this prefix.
-    var prefix_: ?[Nat8] = variables.prefix;
+    let prefix_: ?[Nat8] = variables.prefix;
 
     // An optional offset to begin iterating from in the keys with the same prefix.
     // Used only in the case that prefix is also set.
-    var offset_: ?[Nat8] = variables.offset;
+    let offset_: ?[Nat8] = variables.offset;
 
     public func next() : ?(K, V) {
       switch(cursors_.pop()) {
@@ -123,7 +123,7 @@ module {
                   });
 
                   // Add the child to the top of the cursors to be iterated on first.
-                  let child_address = node.getChildren()[Nat64.toNat(child_idx)];
+                  let child_address = node.getChild(Nat64.toNat(child_idx));
                   cursors_.push(#Address(child_address));
 
                   return self.next();

@@ -20,6 +20,7 @@ module {
 
   // For convenience: from base module
   type Result<Ok, Err> = Result.Result<Ok, Err>;
+  type Buffer<T> = Buffer.Buffer<T>;
   // For convenience: from types module
   type Address = Types.Address;
   type Bytes = Types.Bytes;
@@ -136,17 +137,17 @@ module {
   public class Node(variables : NodeVariables) {
     
     /// Members
-    let address_ : Address = variables.address;
-    var entries_ : [Entry] = variables.entries;
-    var children_ : [Address] = variables.children;
+    var address_ : Address = variables.address;
+    var entries_ : Buffer<Entry> = Types.toBuffer(variables.entries);
+    var children_ : Buffer<Address> = Types.toBuffer(variables.children);
     let node_type_ : NodeType = variables.node_type;
     let max_key_size_ : Nat32 = variables.max_key_size;
     let max_value_size_ : Nat32 = variables.max_value_size;
 
     /// Getters
     public func getAddress() : Address { address_; };
-    public func getEntries() : [Entry] { entries_; };
-    public func getChildren() : [Address] { children_; };
+    public func getEntries() : Buffer<Entry> { entries_; };
+    public func getChildren() : Buffer<Address> { children_; };
     public func getNodeType() : NodeType  { node_type_; };
     public func getMaxKeySize() : Nat32  { max_key_size_; };
     public func getMaxValueSize() : Nat32  { max_value_size_; };
@@ -183,7 +184,7 @@ module {
       var offset = SIZE_NODE_HEADER;
 
       // Write the entries.
-      for ((key, value) in Array.vals(entries_)) {
+      for ((key, value) in entries_.vals()) {
         // Write the size of the key.
         memory.store(address_ + offset, Conversion.nat32ToBytes(Nat32.fromNat(key.size())));
         offset += Nat64.fromNat(U32_SIZE);
@@ -202,7 +203,7 @@ module {
       };
 
       // Write the children
-      for (child in Array.vals(children_)){
+      for (child in children_.vals()){
         memory.store(address_ + offset, Conversion.nat64ToBytes(child));
         offset += Nat64.fromNat(ADDRESS_SIZE); // Address size
       };
@@ -213,11 +214,11 @@ module {
       switch(node_type_){
         case(#Leaf) {
           if (entries_.size() == 0) { Debug.trap("A node can never be empty."); };
-          entries_[entries_.size() - 1];
+          entries_.get(entries_.size() - 1);
         };
         case(#Internal) { 
           if (children_.size() == 0) { Debug.trap("An internal node must have children."); };
-          let last_child = load(children_[children_.size() - 1], memory, max_key_size_, max_value_size_);
+          let last_child = load(children_.get(children_.size() - 1), memory, max_key_size_, max_value_size_);
           last_child.getMax(memory);
         };
       };
@@ -229,11 +230,11 @@ module {
       switch(node_type_){
         case(#Leaf) {
           // NOTE: a node can never be empty, so this access is safe.
-          entries_[0];
+          entries_.get(0);
         };
         case(#Internal) { 
           // NOTE: an internal node must have children, so this access is safe.
-          let first_child = load(children_[0], memory, max_key_size_, max_value_size_);
+          let first_child = load(children_.get(0), memory, max_key_size_, max_value_size_);
           first_child.getMin(memory);
         };
       };
@@ -246,9 +247,9 @@ module {
 
     /// Swaps the entry at index `idx` with the given entry, returning the old entry.
     public func swapEntry(idx: Nat, entry: Entry) : Entry {
-      let old_entry = entries_[idx];
+      let old_entry = entries_.get(idx);
       // @todo: shall we have an array of var Entry ?
-      //entries_[idx] := entry;
+      //entries_.get(idx) := entry;
       old_entry;
     };
 
@@ -263,60 +264,69 @@ module {
       #ok(0);
     };
 
-    /// Add a child to the node's children
-    /// @todo
+    /// Get the child at the given index. Traps if the index is superior than the number of children.
+    public func getChild(idx: Nat) : Address {
+      children_.get(idx);
+    };
+
+    /// Get the entry at the given index. Traps if the index is superior than the number of entries.
+    public func getEntry(idx: Nat) : Entry {
+      entries_.get(idx);
+    };
+
+    /// Add a child at the end of the node's children.
     public func addChild(child: Address) {
+      children_.add(child);
     };
 
-    /// @todo
+    /// Add an entry at the end of the node's entries.
     public func addEntry(entry: Entry) {
+      entries_.add(entry);
     };
 
-    /// Add a child to the node's children
-    /// @todo: see https://doc.rust-lang.org/beta/std/vec/struct.Vec.html#method.insert
-    /// Should insert an element at position index within the vector, shifting all elements after it to the right.
-    public func insertChild(idx: Nat, child: Address) {
-    };
-
-    /// Add an entry to the node's entries
-    /// @todo: see https://doc.rust-lang.org/beta/std/vec/struct.Vec.html#method.insert
-    /// Should insert an element at position index within the vector, shifting all elements after it to the right.
-    public func insertEntry(idx: Nat, entry: Entry) {
-    };
-
-    /// @todo
-    public func popEntry() : ?Entry {
-      null;
-    };
-
-    /// @todo
-    public func removeChild(idx: Nat) : Address {
-      children_[0];
-    };
-
-    /// @todo
+    /// Remove the child at the end of the node's children.
     public func popChild() : ?Address {
-      null;
+      children_.removeLast();
     };
 
-    /// @todo
+    /// Remove the entry at the end of the node's entries.
+    public func popEntry() : ?Entry {
+      entries_.removeLast();
+    };
+
+    /// Insert a child into the node's children at the given index.
+    public func insertChild(idx: Nat, child: Address) {
+      Types.insert(idx, child, children_);
+    };
+
+    /// Insert an entry into the node's entries at the given index.
+    public func insertEntry(idx: Nat, entry: Entry) {
+      Types.insert(idx, entry, entries_);
+    };
+
+    /// Remove the child from the node's children at the given index.
+    public func removeChild(idx: Nat) : Address {
+      Types.remove(idx, children_);
+    };
+
+    /// Remove the entry from the node's entries at the given index.
     public func removeEntry(idx: Nat) : Entry {
-      entries_[0];
+      Types.remove(idx, entries_);
     };
 
-    /// @todo
-    public func appendEntries(entries: [Entry]) {
-    
+    /// Append the given children to the node's children
+    public func appendChildren(children: Buffer<Address>) {
+      children_.append(children);
     };
 
-    /// @todo
+    /// Append the given entries to the node's entries
+    public func appendEntries(entries: Buffer<Entry>) {
+      entries_.append(entries);
+    };
+
+    /// Set the node's address
     public func setAddress(address: Address) {
-
-    };
-
-    /// @todo
-    public func appendChildren(children: [Address]) {
-    
+      address_ := address;
     };
 
   };

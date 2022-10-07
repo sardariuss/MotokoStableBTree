@@ -321,7 +321,7 @@ module {
             case(#Internal){
               // The node is an internal node.
               // Load the child that we should add the entry to.
-              var child = loadNode(node.getChildren()[idx]);
+              var child = loadNode(node.getChild(idx));
 
               if (child.isFull()) {
                 // Check if the key already exists in the child.
@@ -340,7 +340,7 @@ module {
                     // The children have now changed. Search again for
                     // the child where we need to store the entry in.
                     //let idx = node.get_key_idx(&key).unwrap_or_else(|idx| idx);
-                    child := loadNode(node.getChildren()[0]); // @todo
+                    child := loadNode(node.getChild(0)); // @todo
                   };
                 };
               };
@@ -376,7 +376,7 @@ module {
       assert(not node.isFull());
 
       // The node's child must be full.
-      var full_child = loadNode(node.getChildren()[full_child_idx]);
+      var full_child = loadNode(node.getChild(full_child_idx));
       assert(full_child.isFull());
 
       // Create a sibling to this full child (which has to be the same type).
@@ -424,13 +424,13 @@ module {
       let node = loadNode(node_addr);
       //switch(node.getEntries().binary_search_by(|e| e.0.as_slice().cmp(key))) {
       switch(node.getKeyIdx([])){ // @todo
-        case(#ok(idx)) { ?node.getEntries()[idx].1; };
+        case(#ok(idx)) { ?node.getEntries().get(idx).1; };
         case(#err(idx)) {
           switch(node.getNodeType()) {
             case(#Leaf) { null; }; // Key not found.
             case(#Internal) {
               // The key isn't in the node. Look for the key in the child.
-              getHelper(node.getChildren()[idx], key);
+              getHelper(node.getChild(idx), key);
             };
           };
         };
@@ -506,7 +506,7 @@ module {
               // Case 2: The node is an internal node and the key exists in it.
 
               // Check if the child that precedes `key` has at least `B` keys.
-              let left_child = loadNode(node.getChildren()[idx]);
+              let left_child = loadNode(node.getChild(idx));
               if (left_child.getEntries().size() >= Constants.B) {
                 // Case 2.a: The node's left child has >= `B` keys.
                 //
@@ -531,7 +531,7 @@ module {
                 // Recursively delete the predecessor.
                 // TODO(EXC-1034): Do this in a single pass.
                 let predecessor = left_child.getMax(memory_);
-                ignore removeHelper(node.getChildren()[idx], predecessor.0);
+                ignore removeHelper(node.getChild(idx), predecessor.0);
 
                 // Replace the `key` with its predecessor.
                 let (_, old_value) = node.swapEntry(idx, predecessor);
@@ -542,7 +542,7 @@ module {
               };
 
               // Check if the child that succeeds `key` has at least `B` keys.
-              let right_child = loadNode(node.getChildren()[idx + 1]);
+              let right_child = loadNode(node.getChild(idx + 1));
               if (right_child.getEntries().size() >= Constants.B) {
                 // Case 2.b: The node's right child has >= `B` keys.
                 //
@@ -567,7 +567,7 @@ module {
                 // Recursively delete the successor.
                 // TODO(EXC-1034): Do this in a single pass.
                 let successor = right_child.getMin(memory_);
-                ignore removeHelper(node.getChildren()[idx + 1], successor.0);
+                ignore removeHelper(node.getChild(idx + 1), successor.0);
 
                 // Replace the `key` with its successor.
                 let (_, old_value) = node.swapEntry(idx, successor);
@@ -608,7 +608,7 @@ module {
               if (node.getEntries().size() == 0) {
                 // Can only happen if this node is root.
                 assert(node.getAddress() == root_addr_);
-                assert(node.getChildren() == [new_child.getAddress()]);
+                assert(node.getChildren().toArray() == [new_child.getAddress()]);
 
                 root_addr_ := new_child.getAddress();
 
@@ -628,18 +628,18 @@ module {
 
               // If the key does exist in the tree, it will exist in the subtree at index
               // `idx`.
-              var child = loadNode(node.getChildren()[idx]);
+              var child = loadNode(node.getChild(idx));
 
               if (child.getEntries().size() >= Constants.B) {
                 // The child has enough nodes. Recurse to delete the `key` from the
                 // `child`.
-                return removeHelper(node.getChildren()[idx], key);
+                return removeHelper(node.getChild(idx), key);
               };
 
               // The child has < `B` keys. Let's see if it has a sibling with >= `B` keys.
               var left_sibling = do {
                 if (idx > 0) {
-                  ?loadNode(node.getChildren()[idx - 1]);
+                  ?loadNode(node.getChild(idx- 1));
                 } else {
                   null;
                 };
@@ -647,7 +647,7 @@ module {
 
               var right_sibling = do {
                 if (idx + 1 < node.getChildren().size()) {
-                  ?loadNode(node.getChildren()[idx + 1]);
+                  ?loadNode(node.getChild(idx + 1));
                 } else {
                   null;
                 };
@@ -874,13 +874,13 @@ module {
           case(#Internal) {
             // Note that loading a child node cannot fail since
             // len(children) = len(entries) + 1
-            ?loadNode(node.getChildren()[idx]);
+            ?loadNode(node.getChild(idx));
           };
           case(#Leaf) { null; };
         };
 
         // If the prefix is found in the node, then add a cursor starting from its index.
-        if (idx < node.getEntries().size()){ // @todo: and node.getEntries()[idx].0.starts_with(prefix)) {
+        if (idx < node.getEntries().size()){ // @todo: and node.getEntries().get(idx).0.starts_with(prefix)) {
           cursors.add(#Node {
             node;
             next = #Entry(Nat64.fromNat(idx));
@@ -933,7 +933,7 @@ module {
       let (lower, higher) = do {
         (source, into);
         // @todo
-//        if (source.getEntries()[0].0 < into.getEntries()[0].0) {
+//        if (source.getEntries().get(0).0 < into.getEntries().get(0).0) {
 //          (source, into)
 //        } else {
 //          (into, source)

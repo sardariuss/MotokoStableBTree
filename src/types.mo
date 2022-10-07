@@ -1,10 +1,14 @@
 import Buffer "mo:base/Buffer";
 import Result "mo:base/Result";
+import Array "mo:base/Array";
+import List "mo:base/List";
+import Debug "mo:base/Debug";
 
 module {
 
   // For convenience: from base module
   type Result<Ok, Err> = Result.Result<Ok, Err>;
+  type Buffer<T> = Buffer.Buffer<T>;
 
   public type Address = Nat64;
   public type Bytes = Nat64;
@@ -46,8 +50,8 @@ module {
 
   public type INode = {
     getAddress: () -> Address;
-    getEntries: () -> [Entry];
-    getChildren: () -> [Address];
+    getEntries: () -> Buffer<Entry>;
+    getChildren: () -> Buffer<Address>;
     getNodeType: () -> NodeType;
     getMaxKeySize: () -> Nat32;
     getMaxValueSize: () -> Nat32;
@@ -57,6 +61,8 @@ module {
     isFull: () -> Bool;
     swapEntry: (Nat, Entry) -> Entry;
     getKeyIdx: ([Nat8]) -> Result<Nat, Nat>;
+    getChild: (Nat) -> Address;
+    getEntry: (Nat) -> Entry;
     addChild: (Address) -> ();
     addEntry: (Entry) -> ();
     insertChild: (Nat, Address) -> ();
@@ -65,9 +71,9 @@ module {
     removeChild: (Nat) -> Address;
     popChild: () -> ?Address;
     removeEntry: (Nat) -> Entry;
-    appendEntries: ([Entry]) -> ();
+    appendEntries: (Buffer<Entry>) -> ();
     setAddress: (Address) -> ();
-    appendChildren: ([Address]) -> ();
+    appendChildren: (Buffer<Address>) -> ();
   };
 
   public type IAllocator = {
@@ -105,16 +111,55 @@ module {
      loadNode : (address: Address) -> INode;
   };
 
-  //////////////////////////////////////////////////////////////////////
-  // The following functions easily creates a buffer from an arry of any type
-  //////////////////////////////////////////////////////////////////////
-
-  public func toBuffer<T>(x :[T]) : Buffer.Buffer<T>{
+  /// Creates a buffer from an array
+  public func toBuffer<T>(x :[T]) : Buffer<T>{
     let thisBuffer = Buffer.Buffer<T>(x.size());
     for(thisItem in x.vals()){
       thisBuffer.add(thisItem);
     };
     return thisBuffer;
+  };
+
+  /// Splits the buffers into two at the given index.
+  /// The right buffer contains the element at the given index
+  /// similarly to the Rust's vec::split_off method
+  public func split<T>(idx: Nat, buffer: Buffer<T>) : (Buffer<T>, Buffer<T>){
+    let left = buffer;
+    var right = List.nil<T>();
+    while(left.size() > idx){
+      switch(left.removeLast()){
+        case(null) { assert(false); };
+        case(?last){
+          right := List.push<T>(last, right);
+        };
+      };
+    };
+    (left, toBuffer<T>(List.toArray(List.reverse<T>(right))));
+  };
+
+  /// Insert an element into the buffer at given index
+  /// @todo: shall this method return the new buffer instead ?
+  public func insert<T>(idx: Nat, elem: T, buffer: Buffer<T>) {
+    buffer.clear();
+    let (left, right) = split<T>(idx, buffer);
+    buffer.append(left);
+    buffer.add(elem);
+    buffer.append(right);
+  };
+
+  /// Remove an element from the buffer at the given index
+  /// Traps if index is out of bounds.
+  public func remove<T>(idx: Nat, buffer: Buffer<T>) : T {
+    buffer.clear();
+    let (left, right) = split<T>(idx + 1, buffer);
+    switch(left.removeLast()){
+      case(null) { Debug.trap("Index is out of bounds."); };
+      case(?elem) {
+        buffer.append(left);
+        buffer.append(right);
+        elem;
+      };
+    };
   };
 
 };
