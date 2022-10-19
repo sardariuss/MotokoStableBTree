@@ -7,6 +7,10 @@ import Text "mo:base/Text";
 import Nat64 "mo:base/Nat64";
 import Debug "mo:base/Debug";
 
+// @todo
+import Nat8 "mo:base/Nat8";
+import Option "mo:base/Option";
+
 module {
 
   // For convenience: from types module
@@ -67,6 +71,14 @@ module {
 
     if (header.magic != Blob.toArray(Text.encodeUtf8(ALLOCATOR_MAGIC))) { Debug.trap("Bad magic."); };
     if (header.version != ALLOCATOR_LAYOUT_VERSION)                     { Debug.trap("Unsupported version."); };
+
+    Debug.print("magic = " # Option.unwrap(Text.decodeUtf8(Blob.fromArray(header.magic))));
+    Debug.print("version = " # Nat8.toText(header.version));
+    //Debug.print("_alignment = " # header._alignment: [Nat8]; // 4 bytes
+    Debug.print("allocation_size = " # Nat64.toText(header.allocation_size));
+    Debug.print("num_allocated_chunks = " # Nat64.toText(header.num_allocated_chunks));
+    Debug.print("free_list_head = " # Nat64.toText(header.free_list_head));
+    //Debug.print("_buffer = " # header._buffer: [Nat8]; // 16 bytes
     
     Allocator({
       header_addr = addr;
@@ -104,7 +116,6 @@ module {
   /// # Assumptions:
   ///
   /// * The given memory is not being used by any other data structure.
-  // @diff: no template type memory
   public class Allocator(variables: AllocatorVariables) {
 
     /// Members
@@ -193,6 +204,7 @@ module {
         saveChunkHeader(initChunkHeader(), free_list_head_, memory_);
       };
 
+      num_allocated_chunks_ += 1;
       saveAllocator();
 
       // Return the chunk's address offset by the chunk's header.
@@ -269,7 +281,8 @@ module {
     _buffer: [Nat8]; // 16 bytes
   };
 
-  let SIZE_ALLOCATOR_HEADER : Nat64 = 48;
+  // @todo: public for tests
+  public let SIZE_ALLOCATOR_HEADER : Nat64 = 48;
 
   type ChunkHeader = {
     magic: [Nat8]; // 3 bytes
@@ -280,7 +293,7 @@ module {
     next: Address;
   };
 
-  let SIZE_CHUNK_HEADER : Nat64 = 16;
+  public let SIZE_CHUNK_HEADER : Nat64 = 16;
 
   // Initializes an unallocated chunk that doesn't point to another chunk.
   func initChunkHeader() : ChunkHeader {
@@ -301,7 +314,7 @@ module {
     memory.store(addr + 3 + 1 + 1 + 3,      Conversion.nat64ToBytes(header.next));
   };
 
-  func loadChunkHeader(addr: Address, memory: Memory) : ChunkHeader {
+  public func loadChunkHeader(addr: Address, memory: Memory) : ChunkHeader {
     let header = {
       magic =                            memory.load(addr,                 3);
       version =                          memory.load(addr + 3,             1)[0];

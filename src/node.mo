@@ -344,6 +344,10 @@ module {
 
   };
 
+  public func makeEntry(key: [Nat8], value: [Nat8]) : Entry {
+    (key, value);
+  };
+
   /// Compare the two entries using their keys
   public func compareEntryKeys(a: Entry, b: Entry) : Order {
     Utils.compare(a.0, b.0, Nat8.compare);
@@ -356,8 +360,8 @@ module {
     Debug.trap("Unknown node type " # Nat8.toText(header.node_type));
   };
 
-  /// The maximum number of entries per 
-  func getCapacity() : Nat64 {
+  /// The maximum number of entries per node.
+  public func getCapacity() : Nat64 {
     2 * Nat64.fromNat(Constants.B) - 1;
   };
 

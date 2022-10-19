@@ -23,6 +23,18 @@ module {
     return thisBuffer;
   };
 
+  /// Append two arrays using a buffer
+  public func append<T>(left: [T], right: [T]) : [T] {
+    let buffer = Buffer.Buffer<T>(left.size());
+    for(val in left.vals()){
+      buffer.add(val);
+    };
+    for(val in right.vals()){
+      buffer.add(val);
+    };
+    return buffer.toArray();
+  };
+
   /// Splits the buffers into two at the given index.
   /// The right buffer contains the element at the given index
   /// similarly to the Rust's vec::split_off method
@@ -135,7 +147,7 @@ module {
     let array_size = array.size();
     var idx : Nat = 0;
     // Iterate on the array
-    while (idx < (array_size + 1)){
+    while (idx < (array_size - 1)){
       switch(order(array[idx], array[idx + 1])){
         case(#greater) { 
           // Previous is greater than next, wrong order

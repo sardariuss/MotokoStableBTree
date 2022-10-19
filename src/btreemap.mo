@@ -4,6 +4,7 @@ import Conversion "conversion";
 import Node "node";
 import Constants "constants";
 import Iter "iter";
+import Utils "utils";
 
 import Result "mo:base/Result";
 import Option "mo:base/Option";
@@ -14,6 +15,8 @@ import Debug "mo:base/Debug";
 import Array "mo:base/Array";
 import Nat64 "mo:base/Nat64";
 import Order "mo:base/Order";
+import Buffer "mo:base/Buffer";
+import Nat8 "mo:base/Nat8";
 
 module {
 
