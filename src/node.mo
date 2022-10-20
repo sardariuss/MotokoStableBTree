@@ -108,8 +108,6 @@ module {
     let entry_size = Nat64.fromNat(U32_SIZE) + max_key_size_n64 + max_value_size_n64 + Nat64.fromNat(U32_SIZE);
     let child_size = Nat64.fromNat(ADDRESS_SIZE);
 
-    // @todo: verify the logic here, but at first sight it seems that Bytes::from 
-    // implementation in Rust does nothing useful but wrap the nat64 type
     node_header_size
       + getCapacity() * entry_size
       + (getCapacity() + 1) * child_size;
@@ -175,10 +173,7 @@ module {
         Debug.trap("An empty node cannot be saved.");
       };
 
-      Debug.print(entriesToText());
-
       // Assert entries are sorted in strictly increasing order.
-      // @todo: verify what strictly means in rust implementation
       if (not Utils.isSortedInIncreasingOrder(getKeys(), compareEntryKeys)) {
         Debug.trap("The node entries are not sorted in increasing order.");
       };

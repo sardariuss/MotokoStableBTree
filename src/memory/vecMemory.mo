@@ -24,13 +24,13 @@ module {
     };
 
     public func load(address: Nat64, size: Nat) : [Nat8] {
-      // Traps on overflow
+      // Traps on overflow.
       let offset = address + Nat64.fromNat(size);
-      
+      // Cannot read pass the memory buffer size.
       if (Nat64.toNat(offset) > buffer_.size()){
         Debug.trap("read: out of bounds");
       };
-
+      // Copy the bytes from the memory buffer.
       let bytes = Buffer.Buffer<Nat8>(size);
       for (idx in Iter.range(Nat64.toNat(address), Nat64.toNat(offset) - 1)){
         bytes.add(buffer_.get(idx));
@@ -39,16 +39,17 @@ module {
     };
 
     public func store(address: Nat64, bytes: [Nat8]) {
-      // Traps on overflow
+      // Traps on overflow.
       let offset = address + Nat64.fromNat(bytes.size());
-
-      // @todo: differ from rust implementation
+      // Compute the number of pages required.
       let pages = (offset + Constants.WASM_PAGE_SIZE) >> 16;
+      // Grow the number of pages if necessary.
       if (pages > this.size()){
         if (grow(pages - this.size()) < 0){
           Debug.trap("Fail to grow memory.");
         };
       };
+      // Copy the bytes in the buffer.
       for (idx in Array.keys(bytes)){
         buffer_.put(Nat64.toNat(address) + idx, bytes[idx]);
       };
@@ -56,25 +57,26 @@ module {
 
     func grow(pages: Nat64) : Int64 {
       let size = this.size();
-      // @todo: if n overflows here, it traps, whereas in the rust impl, it returns -1
       let num_pages = size + pages;
+      // Number of pages cannot exceed defined MAX_PAGES.
       if (num_pages > MAX_PAGES) {
         return -1;
       };
+      // Add the pages (initialized with zeros) to the memory buffer.
       let to_add = Array.freeze(Array.init<Nat8>(Nat64.toNat(pages * Constants.WASM_PAGE_SIZE), 0));
       buffer_.append(Utils.toBuffer(to_add));
-      // @todo: seems like that's what is done in rust (wrap)
+      // Return the previous size.
       return Int64.fromIntWrap(Nat64.toNat(size));
     };
 
-    public func print() {
+    public func toText() : Text {
       let text_buffer = Buffer.Buffer<Text>(0);
       text_buffer.add("Memory : [");
       for (byte in buffer_.vals()){
         text_buffer.add(Nat8.toText(byte) # ", ");
       };
       text_buffer.add("]");
-      Debug.print(Text.join("", text_buffer.vals()));
+      Text.join("", text_buffer.vals());
     };
 
   };

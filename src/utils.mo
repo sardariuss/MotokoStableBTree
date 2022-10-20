@@ -5,8 +5,7 @@ import List "mo:base/List";
 import Debug "mo:base/Debug";
 import Order "mo:base/Order";
 import Iter "mo:base/Iter";
-import Nat "mo:base/Nat"; // @todo
-import Int "mo:base/Int"; // @todo
+import Int "mo:base/Int";
 
 module {
 
@@ -75,21 +74,26 @@ module {
 
   /// Searches the element in the ordered array.
   public func binarySearch<T>(array: [T], order: (T, T) -> Order, elem: T) : Result<Nat, Nat> {
+    // Return index 0 if array is empty
     if (array.size() == 0){
       return #err(0);
     };
+    // Initialize search from first to last index
     var left : Nat = 0;
     var right : Int = array.size() - 1; // Right can become less than 0, hence the integer type
+    // Search the array
     while (left < right) {
       let middle = Int.abs(left + (right - left) / 2);
-      
       switch(order(elem, array[middle])){
+        // If the element is present at the middle itself
         case(#equal) { return #ok(middle); };
+        // If element is greater than mid, it can only be present in left subarray
         case(#greater) { left := middle + 1; };
+        // If element is smaller than mid, it can only be present in right subarray
         case(#less) { right := middle - 1; };
       };
     };
-
+    // The search did not find a match
     switch(order(elem, array[left])){
       case(#equal) { return #ok(left); };
       case(#greater) { return #err(left + 1); };

@@ -77,7 +77,6 @@ module {
 
       // Each allocation should push the `head` by `chunk_size`.
       assert(allocator.getFreeListHead() == allocator_addr + Allocator.SIZE_ALLOCATOR_HEADER + allocator.chunkSize() * 3);
-      Debug.print(Nat64.toText(allocator.getNumAllocatedChunks()));
       assert(allocator.getNumAllocatedChunks() == 3);
 
       // Load and reload to verify that the data is the same.

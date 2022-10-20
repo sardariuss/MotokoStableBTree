@@ -7,10 +7,6 @@ import Text "mo:base/Text";
 import Nat64 "mo:base/Nat64";
 import Debug "mo:base/Debug";
 
-// @todo
-import Nat8 "mo:base/Nat8";
-import Option "mo:base/Option";
-
 module {
 
   // For convenience: from types module
@@ -71,14 +67,6 @@ module {
 
     if (header.magic != Blob.toArray(Text.encodeUtf8(ALLOCATOR_MAGIC))) { Debug.trap("Bad magic."); };
     if (header.version != ALLOCATOR_LAYOUT_VERSION)                     { Debug.trap("Unsupported version."); };
-
-    Debug.print("magic = " # Option.unwrap(Text.decodeUtf8(Blob.fromArray(header.magic))));
-    Debug.print("version = " # Nat8.toText(header.version));
-    //Debug.print("_alignment = " # header._alignment: [Nat8]; // 4 bytes
-    Debug.print("allocation_size = " # Nat64.toText(header.allocation_size));
-    Debug.print("num_allocated_chunks = " # Nat64.toText(header.num_allocated_chunks));
-    Debug.print("free_list_head = " # Nat64.toText(header.free_list_head));
-    //Debug.print("_buffer = " # header._buffer: [Nat8]; // 16 bytes
     
     Allocator({
       header_addr = addr;
@@ -281,7 +269,6 @@ module {
     _buffer: [Nat8]; // 16 bytes
   };
 
-  // @todo: public for tests
   public let SIZE_ALLOCATOR_HEADER : Nat64 = 48;
 
   type ChunkHeader = {

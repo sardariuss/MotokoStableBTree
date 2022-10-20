@@ -245,21 +245,11 @@ module {
         } else {
           // Load the root from memory.
           var root = loadNode(root_addr_);
-          Debug.print("Root = " # root.entriesToText());
-      
-          let text_buffer = Buffer.Buffer<Text>(0);
-          text_buffer.add("Key = [");
-          for (byte in Array.vals(key)){
-            text_buffer.add(Nat8.toText(byte) # " ");
-          };
-          text_buffer.add("]");
-          Debug.print(Text.join("", text_buffer.vals()));
 
           // Check if the key already exists in the root.
           switch(root.getKeyIdx(key)) {
             case(#ok(idx)){
               // The key exists. Overwrite it and return the previous value.
-              Debug.print("The key exists.");
               let (_, previous_value) = root.swapEntry(idx, (key, value));
               root.save(memory_);
               return #ok(?(value_converter_.fromBytes(previous_value)));
@@ -308,7 +298,6 @@ module {
         case(#ok(idx)){
           // The key is already in the node.
           // Overwrite it and return the previous value.
-          Debug.print("The key exists in the node");
           let (_, previous_value) = node.swapEntry(idx, (key, value));
 
           node.save(memory_);
@@ -316,7 +305,6 @@ module {
         };
         case(#err(idx)){
           // The key isn't in the node. `idx` is where that key should be inserted.
-          Debug.print("Found idx = " # Nat.toText(idx));
 
           switch(node.getNodeType()) {
             case(#Leaf){
@@ -324,7 +312,6 @@ module {
               // Insert the entry at the proper location.
               node.insertEntry(idx, (key, value));
               
-              Debug.print("Save the node here");
               node.save(memory_);
 
               // Update the length.
@@ -392,7 +379,6 @@ module {
     //                [ N  O  P  Q  R ]   [ T  U  V  W  X ]
     //
     func splitChild(node: Node, full_child_idx: Nat) {
-      Debug.print("SPLIT CHILD");
       // The node must not be full.
       assert(not node.isFull());
 
