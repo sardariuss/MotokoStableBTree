@@ -5,6 +5,8 @@ import List "mo:base/List";
 import Debug "mo:base/Debug";
 import Order "mo:base/Order";
 import Iter "mo:base/Iter";
+import Nat "mo:base/Nat"; // @todo
+import Int "mo:base/Int"; // @todo
 
 module {
 
@@ -38,7 +40,7 @@ module {
   /// Splits the buffers into two at the given index.
   /// The right buffer contains the element at the given index
   /// similarly to the Rust's vec::split_off method
-  public func splitOff<T>(idx: Nat, buffer: Buffer<T>) : Buffer<T>{
+  public func splitOff<T>(buffer: Buffer<T>, idx: Nat) : Buffer<T>{
     var tail = List.nil<T>();
     while(buffer.size() > idx){
       switch(buffer.removeLast()){
@@ -48,21 +50,21 @@ module {
         };
       };
     };
-    toBuffer<T>(List.toArray(List.reverse<T>(tail)));
+    toBuffer<T>(List.toArray(tail));
   };
 
   /// Insert an element into the buffer at given index
-  public func insert<T>(idx: Nat, elem: T, buffer: Buffer<T>) {
-    let tail = splitOff(idx, buffer);
+  public func insert<T>(buffer: Buffer<T>, idx: Nat, elem: T) {
+    let tail = splitOff(buffer, idx);
     buffer.add(elem);
     buffer.append(tail);
   };
 
   /// Remove an element from the buffer at the given index
   /// Traps if index is out of bounds.
-  public func remove<T>(idx: Nat, buffer: Buffer<T>) : T {
-    let tail = splitOff(idx + 1, buffer);
-    switch(tail.removeLast()){
+  public func remove<T>(buffer: Buffer<T>, idx: Nat) : T {
+    let tail = splitOff(buffer, idx + 1);
+    switch(buffer.removeLast()){
       case(null) { Debug.trap("Index is out of bounds."); };
       case(?elem) {
         buffer.append(tail);
@@ -73,21 +75,25 @@ module {
 
   /// Searches the element in the ordered array.
   public func binarySearch<T>(array: [T], order: (T, T) -> Order, elem: T) : Result<Nat, Nat> {
-    search(array, order, elem, 0, array.size());
-  };
-
-  /// Searches recursively the element in the ordered array.
-  func search<T>(array: [T], order: (T, T) -> Order, elem: T, idx: Nat, window: Nat) : Result<Nat, Nat> {
-    if (window == 0) {
-      return #err(idx);
+    if (array.size() == 0){
+      return #err(0);
     };
-    let half_window = window / 2;
-    let mid_idx = idx + half_window;
-    let middle_elem = array[mid_idx];
-    switch(order(middle_elem, elem)){
-      case(#less)    { search(array, order, elem, mid_idx, half_window); };
-      case(#greater) { search(array, order, elem, idx,     half_window); };
-      case(#equal)   {                   #ok(mid_idx);                   };
+    var left : Nat = 0;
+    var right : Int = array.size() - 1; // Right can become less than 0, hence the integer type
+    while (left < right) {
+      let middle = Int.abs(left + (right - left) / 2);
+      
+      switch(order(elem, array[middle])){
+        case(#equal) { return #ok(middle); };
+        case(#greater) { left := middle + 1; };
+        case(#less) { right := middle - 1; };
+      };
+    };
+
+    switch(order(elem, array[left])){
+      case(#equal) { return #ok(left); };
+      case(#greater) { return #err(left + 1); };
+      case(#less) { return #err(left); };
     };
   };
 
@@ -98,7 +104,7 @@ module {
   /// If two sequence have equivalent elements and are of the same length, then the sequences are lexicographically equal.
   /// An empty sequence is lexicographically less than any non-empty sequence.
   /// Two empty sequences are lexicographically equal.
-  public func compare<T>(left: [T], right: [T], order: (T, T) -> Order) : Order {
+  public func lexicographicallyCompare<T>(left: [T], right: [T], order: (T, T) -> Order) : Order {
     let left_size = left.size();
     let right_size = right.size();
     var idx : Nat = 0;
@@ -114,9 +120,10 @@ module {
         case(#greater) { return #greater; };
         case(_) {}; // Continue iterating.
       };
+      idx += 1;
     };
     // If we arrive here, it means at least left is contained in right
-    if (left.size() == right_size){
+    if (left_size == right_size){
       return #equal;
     };
     // Left is a prefix of right, so left is lesser.
@@ -137,6 +144,7 @@ module {
         case(#equal) {}; // Values are equal, continue iterating.
         case(_) { return false; }; // Values are not equal, the array does not start with the prefix.
       };
+      idx += 1;
     };
     // The array starts with the prefix.
     return true;
@@ -144,10 +152,10 @@ module {
 
   /// Check if the array is sorted in increasing order.
   public func isSortedInIncreasingOrder<T>(array: [T], order: (T, T) -> Order) : Bool {
-    let array_size = array.size();
+    let size_array = array.size();
     var idx : Nat = 0;
     // Iterate on the array
-    while (idx < (array_size - 1)){
+    while (idx + 1 < size_array){
       switch(order(array[idx], array[idx + 1])){
         case(#greater) { 
           // Previous is greater than next, wrong order
@@ -155,6 +163,7 @@ module {
         };
         case(_) {}; // Previous is less or equal than next, continue iterating
       };
+      idx += 1;
     };
     // All elements have been checked one to one, the array is sorted.
     return true;

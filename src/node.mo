@@ -55,7 +55,7 @@ module {
     // Load the entries.
     var entries = Buffer.Buffer<Entry>(0);
     var offset = SIZE_NODE_HEADER;
-    for (_ in Iter.range(0, Nat16.toNat(header.num_entries - 1))){ // @todo: verify if it is really num_entries - 1
+    for (_ in Iter.range(0, Nat16.toNat(header.num_entries - 1))){
       // Read the key's size.
       let key_size = Conversion.bytesToNat32(memory.load(address + offset, U32_SIZE));
       offset += Nat64.fromNat(U32_SIZE);
@@ -79,7 +79,7 @@ module {
     var children = Buffer.Buffer<Address>(0);
     if (header.node_type == INTERNAL_NODE_TYPE) {
       // The number of children is equal to the number of entries + 1.
-      for (_ in Iter.range(0, Nat16.toNat(header.num_entries))){ // @todo: verify if it is really num_entries
+      for (_ in Iter.range(0, Nat16.toNat(header.num_entries))){
         let child = Conversion.bytesToNat64(memory.load(address + offset, ADDRESS_SIZE));
         offset += Nat64.fromNat(ADDRESS_SIZE);
         children.add(child);
@@ -159,19 +159,28 @@ module {
     public func save(memory: Memory) {
       switch(node_type_) {
         case(#Leaf){
-          assert(children_.size() == 0);
+          if (children_.size() != 0){
+            Debug.trap("A leaf node cannot have children.");
+          };
         };
         case(#Internal){
-          assert(children_.size() == entries_.size() + 1);
+          if (children_.size() != entries_.size() + 1){
+            Debug.trap("An internal node shall have its number of children equal to its number of entries + 1.");
+          };
         };
       };
 
       // We should never be saving an empty node.
-      assert((entries_.size() != 0) or (children_.size() != 0));
+      if ((entries_.size() == 0) and (children_.size() == 0)){
+        Debug.trap("An empty node cannot be saved.");
+      };
+
+      Debug.print(entriesToText());
 
       // Assert entries are sorted in strictly increasing order.
-      if (Utils.isSortedInIncreasingOrder(entries_.toArray(), compareEntryKeys)) {
-        Debug.trap("The buffer is not sorted in increasing order.");
+      // @todo: verify what strictly means in rust implementation
+      if (not Utils.isSortedInIncreasingOrder(getKeys(), compareEntryKeys)) {
+        Debug.trap("The node entries are not sorted in increasing order.");
       };
 
       let header = {
@@ -218,10 +227,12 @@ module {
     public func getMax(memory: Memory) : Entry {
       switch(node_type_){
         case(#Leaf) {
+          // NOTE: a node can never be empty, so this access is safe.
           if (entries_.size() == 0) { Debug.trap("A node can never be empty."); };
           entries_.get(entries_.size() - 1);
         };
         case(#Internal) { 
+          // NOTE: an internal node must have children, so this access is safe.
           if (children_.size() == 0) { Debug.trap("An internal node must have children."); };
           let last_child = load(children_.get(children_.size() - 1), memory, max_key_size_, max_value_size_);
           last_child.getMax(memory);
@@ -230,15 +241,16 @@ module {
     };
 
     /// Returns the entry with min key in the subtree.
-    // @todo: why do we assume a node can never be empty / an internal node must have children in getMax and not in getMin ?
     public func getMin(memory: Memory) : Entry {
       switch(node_type_){
         case(#Leaf) {
           // NOTE: a node can never be empty, so this access is safe.
+          if (entries_.size() == 0) { Debug.trap("A node can never be empty."); };
           entries_.get(0);
         };
         case(#Internal) { 
           // NOTE: an internal node must have children, so this access is safe.
+          if (children_.size() == 0) { Debug.trap("An internal node must have children."); };
           let first_child = load(children_.get(0), memory, max_key_size_, max_value_size_);
           first_child.getMin(memory);
         };
@@ -264,7 +276,7 @@ module {
     /// returned, containing the index where a matching key could be inserted
     /// while maintaining sorted order.
     public func getKeyIdx(key: [Nat8]) : Result<Nat, Nat> {
-      Utils.binarySearch(entries_.toArray(), compareEntryKeys, (key, []));
+      Utils.binarySearch(getKeys(), compareEntryKeys, key);
     };
 
     /// Get the child at the given index. Traps if the index is superior than the number of children.
@@ -314,22 +326,22 @@ module {
 
     /// Insert a child into the node's children at the given index.
     public func insertChild(idx: Nat, child: Address) {
-      Utils.insert(idx, child, children_);
+      Utils.insert(children_, idx, child);
     };
 
     /// Insert an entry into the node's entries at the given index.
     public func insertEntry(idx: Nat, entry: Entry) {
-      Utils.insert(idx, entry, entries_);
+      Utils.insert(entries_, idx, entry);
     };
 
     /// Remove the child from the node's children at the given index.
     public func removeChild(idx: Nat) : Address {
-      Utils.remove(idx, children_);
+      Utils.remove(children_, idx);
     };
 
     /// Remove the entry from the node's entries at the given index.
     public func removeEntry(idx: Nat) : Entry {
-      Utils.remove(idx, entries_);
+      Utils.remove(entries_, idx);
     };
 
     /// Append the given children to the node's children
@@ -342,6 +354,28 @@ module {
       entries_.append(entries);
     };
 
+    func getKeys() : [[Nat8]] {
+      Array.map(entries_.toArray(), func(entry: Entry) : [Nat8] { entry.0; });
+    };
+
+    public func entriesToText() : Text {
+      let text_buffer = Buffer.Buffer<Text>(0);
+      text_buffer.add("Entries = [");
+      for ((key, val) in entries_.vals()){
+        text_buffer.add("e([");
+        for (byte in Array.vals(key)){
+          text_buffer.add(Nat8.toText(byte) # " ");
+        };
+        text_buffer.add("], [");
+        for (byte in Array.vals(val)){
+          text_buffer.add(Nat8.toText(byte) # " ");
+        };
+        text_buffer.add("]), ");
+      };
+      text_buffer.add("]");
+      Text.join("", text_buffer.vals());
+    };
+
   };
 
   public func makeEntry(key: [Nat8], value: [Nat8]) : Entry {
@@ -349,8 +383,8 @@ module {
   };
 
   /// Compare the two entries using their keys
-  public func compareEntryKeys(a: Entry, b: Entry) : Order {
-    Utils.compare(a.0, b.0, Nat8.compare);
+  public func compareEntryKeys(key_a: [Nat8], key_b: [Nat8]) : Order {
+    Utils.lexicographicallyCompare(key_a, key_b, Nat8.compare);
   };
 
   /// Deduce the node type based on the node header

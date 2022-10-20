@@ -73,6 +73,7 @@ module {
     removeEntry: (Nat) -> Entry;
     appendChildren: (Buffer<Address>) -> ();
     appendEntries: (Buffer<Entry>) -> ();
+    entriesToText: () -> Text;
   };
 
   public type IAllocator = {

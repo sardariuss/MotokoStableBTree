@@ -17,6 +17,7 @@ import Nat64 "mo:base/Nat64";
 import Order "mo:base/Order";
 import Buffer "mo:base/Buffer";
 import Nat8 "mo:base/Nat8";
+import Nat "mo:base/Nat";
 
 module {
 
@@ -244,11 +245,21 @@ module {
         } else {
           // Load the root from memory.
           var root = loadNode(root_addr_);
+          Debug.print("Root = " # root.entriesToText());
+      
+          let text_buffer = Buffer.Buffer<Text>(0);
+          text_buffer.add("Key = [");
+          for (byte in Array.vals(key)){
+            text_buffer.add(Nat8.toText(byte) # " ");
+          };
+          text_buffer.add("]");
+          Debug.print(Text.join("", text_buffer.vals()));
 
           // Check if the key already exists in the root.
           switch(root.getKeyIdx(key)) {
             case(#ok(idx)){
               // The key exists. Overwrite it and return the previous value.
+              Debug.print("The key exists.");
               let (_, previous_value) = root.swapEntry(idx, (key, value));
               root.save(memory_);
               return #ok(?(value_converter_.fromBytes(previous_value)));
@@ -297,6 +308,7 @@ module {
         case(#ok(idx)){
           // The key is already in the node.
           // Overwrite it and return the previous value.
+          Debug.print("The key exists in the node");
           let (_, previous_value) = node.swapEntry(idx, (key, value));
 
           node.save(memory_);
@@ -304,6 +316,7 @@ module {
         };
         case(#err(idx)){
           // The key isn't in the node. `idx` is where that key should be inserted.
+          Debug.print("Found idx = " # Nat.toText(idx));
 
           switch(node.getNodeType()) {
             case(#Leaf){
@@ -311,6 +324,7 @@ module {
               // Insert the entry at the proper location.
               node.insertEntry(idx, (key, value));
               
+              Debug.print("Save the node here");
               node.save(memory_);
 
               // Update the length.
@@ -341,7 +355,11 @@ module {
 
                     // The children have now changed. Search again for
                     // the child where we need to store the entry in.
-                    let index = Option.get(Result.toOption(node.getKeyIdx(key)), idx);
+                    let index = switch(node.getKeyIdx(key)){
+                      case(#ok(i))  { i; };
+                      case(#err(i)) { i; };
+                    };
+
                     child := loadNode(node.getChild(index));
                   };
                 };
@@ -374,6 +392,7 @@ module {
     //                [ N  O  P  Q  R ]   [ T  U  V  W  X ]
     //
     func splitChild(node: Node, full_child_idx: Nat) {
+      Debug.print("SPLIT CHILD");
       // The node must not be full.
       assert(not node.isFull());
 
@@ -386,10 +405,10 @@ module {
       assert(sibling.getNodeType() == full_child.getNodeType());
 
       // Move the values above the median into the new sibling.
-      sibling.setEntries(Utils.splitOff<Entry>(Constants.B, full_child.getEntries()));
+      sibling.setEntries(Utils.splitOff<Entry>(full_child.getEntries(), Constants.B));
 
       if (full_child.getNodeType() == #Internal) {
-        sibling.setChildren(Utils.splitOff<Address>(Constants.B, full_child.getChildren()));
+        sibling.setChildren(Utils.splitOff<Address>(full_child.getChildren(), Constants.B));
       };
 
       // Add sibling as a new child in the node. 
@@ -402,9 +421,9 @@ module {
         };
         case(?median_entry){
           node.insertEntry(full_child_idx, median_entry);
-          //sibling.save(memory);
-          //full_child.save(memory);
-          //node.save(memory);
+          sibling.save(memory_);
+          full_child.save(memory_);
+          node.save(memory_);
         };
       };
     };
@@ -480,7 +499,7 @@ module {
               length_ -= 1;
 
               if (node.getEntries().size() == 0) {
-                if (node.getAddress() == root_addr_) {
+                if (node.getAddress() != root_addr_) {
                   Debug.trap("Removal can only result in an empty leaf node if that node is the root");
                 };
 
@@ -927,7 +946,7 @@ module {
 
       // Figure out which node contains lower values than the other.
       let (lower, higher) = do {
-        if (Order.isLess(Node.compareEntryKeys(source.getEntry(0), into.getEntry(0)))){
+        if (Order.isLess(Node.compareEntryKeys(source.getEntry(0).0, into.getEntry(0).0))){
           (source, into);
         } else {
           (into, source);

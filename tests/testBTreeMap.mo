@@ -18,6 +18,9 @@ import Nat32 "mo:base/Nat32";
 import Nat8 "mo:base/Nat8";
 import Iter "mo:base/Iter";
 import Int "mo:base/Int";
+import Nat "mo:base/Nat";
+import Text "mo:base/Text";
+import Array "mo:base/Array";
 
 module {
 
@@ -39,7 +42,7 @@ module {
 
     let bytes_passtrough = {
       fromBytes = func(bytes: [Nat8]) : [Nat8] { bytes; };
-      toBytes = func (bytes: [Nat8]) : [Nat8] { bytes; };
+      toBytes = func(bytes: [Nat8]) : [Nat8] { bytes; };
     };
 
     func initPreservesData() {
@@ -104,7 +107,7 @@ module {
   
       // The right child should now be full, with the median key being "12"
       var right_child = btree.loadNode(root.getChildren().get(1));
-      assert(not right_child.isFull());
+      assert(right_child.isFull());
       let median_index = right_child.getEntries().size() / 2;
       assert(right_child.getEntries().get(median_index).0 == [12]);
   
@@ -117,7 +120,7 @@ module {
       // The child has not been split and is still full.
       right_child := btree.loadNode(root.getChildren().get(1));
       assert(right_child.getNodeType() == #Leaf);
-      assert(not right_child.isFull());
+      assert(right_child.isFull());
     };
   
     func insertOverwriteKeyInFullRootNode() {
@@ -132,7 +135,7 @@ module {
       //
       // [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
       var root = btree.loadNode(btree.getRootAddr());
-      assert(not root.isFull());
+      assert(root.isFull());
   
       // Overwrite an element in the root. It should NOT cause the node to be split.
       assert(btree.insert([6], [4, 5, 6]) == #ok(?([])));
@@ -147,7 +150,7 @@ module {
       let mem = VecMemory.VecMemory();
       let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
   
-      for (i in Iter.range(0, Nat64.toNat(Node.getCapacity()))) {
+      for (i in Iter.range(0, Nat64.toNat(Node.getCapacity() - 1))) {
         assert(btree.insert([Nat8.fromNat(i)], []) == #ok(null));
       };
   
@@ -178,7 +181,7 @@ module {
   
       assert(btree.insert([1], [2]) == #ok(null));
   
-      for (i in Iter.range(2, 10)) {
+      for (i in Iter.range(2, 9)) {
         assert(btree.insert([1], [Nat8.fromNat(i) + 1]) == #ok(?([Nat8.fromNat(i)])));
       };
     };
@@ -215,12 +218,12 @@ module {
       // overwriting the value in an internal node).
       assert(Nat64.fromNat(num_elements) > 10 * Node.getCapacity());
   
-      for (i in Iter.range(0, num_elements)) {
+      for (i in Iter.range(0, num_elements - 1)) {
         assert(btree.insert([Nat8.fromNat(i)], []) == #ok(null));
       };
-  
+
       // Overwrite the values.
-      for (i in Iter.range(0, num_elements)) {
+      for (i in Iter.range(0, num_elements - 1)) {
         // Assert we retrieved the old value correctly.
         assert(btree.insert([Nat8.fromNat(i)], [1, 2, 3]) == #ok(?([])));
         // Assert we retrieved the new value correctly.
@@ -727,8 +730,8 @@ module {
       let mem = VecMemory.VecMemory();
       var btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
   
-      for (j in Iter.revRange(0, 10)) {
-        for (i in Iter.revRange(0, 255)) {
+      for (j in Iter.revRange(10, 0)) {
+        for (i in Iter.revRange(255, 0)) {
           let bytes = [Nat8.fromNat(Int.abs(i)), Nat8.fromNat(Int.abs(j))];
           assert(btree.insert(bytes, bytes) == #ok(null));
         };
@@ -743,8 +746,8 @@ module {
   
       btree := BTreeMap.load(mem, bytes_passtrough, bytes_passtrough);
   
-      for (j in Iter.revRange(0, 10)) {
-        for (i in Iter.revRange((0, 255))) {
+      for (j in Iter.revRange(10, 0)) {
+        for (i in Iter.revRange((255, 0))) {
           let bytes = [Nat8.fromNat(Int.abs(i)), Nat8.fromNat(Int.abs(j))];
           assert(btree.remove(bytes) == ?(bytes));
         };
@@ -798,14 +801,14 @@ module {
       let mem = VecMemory.VecMemory();
       let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
   
-      for (i in Iter.range(0, 1000)) {
+      for (i in Iter.range(0, 999)) {
         assert(btree.insert(Conversion.nat32ToBytes(Nat32.fromNat(i)), [])  == #ok(null));
       };
   
       assert(btree.getLength() == 1000);
       assert(not btree.isEmpty());
   
-      for (i in Iter.range(0, 1000)) {
+      for (i in Iter.range(0, 999)) {
         assert(btree.remove(Conversion.nat32ToBytes(Nat32.fromNat(i))) == ?([]));
       };
   
@@ -818,13 +821,13 @@ module {
       let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
   
       // Insert even numbers from 0 to 1000.
-      for (i in Iter.range(0, 500)) {
+      for (i in Iter.range(0, 499)) {
         assert(btree.insert(Conversion.nat32ToBytes(Nat32.fromNat(i * 2)), []) == #ok(null));
       };
   
       // Contains key should return true on all the even numbers and false on all the odd
       // numbers.
-      for (i in Iter.range(0, 1000)) {
+      for (i in Iter.range(0, 499)) {
         assert(btree.containsKey(Conversion.nat32ToBytes(Nat32.fromNat(i)))  == (i % 2 == 0));
       };
     };
@@ -1046,7 +1049,7 @@ module {
   
       // Insert 1000 elements with prefix 0 and another 1000 elements with prefix 1.
       for (prefix in Iter.range(0, 1)) {
-        for (i in Iter.range(0, 1000)) {
+        for (i in Iter.range(0, 999)) {
           // The key is the prefix followed by the integer's encoding.
           // The encoding is big-endian so that the byte representation of the
           // integers are sorted.
@@ -1224,6 +1227,38 @@ module {
     };
 
     public func getSuite() : Suite.Suite {
+      initPreservesData();
+      insertGet();
+      insertOverwritesPreviousValue();
+      insertGetMultiple();
+      insertOverwriteMedianKeyInFullChildNode();
+      insertOverwriteKeyInFullRootNode();
+      allocations();
+      allocations2();
+      insertSameKeyMultiple();
+      insertSplitNode();
+      overwriteTest();
+      insertSplitMultipleNodes();
+      removeSimple();
+      removeCase2aAnd2c();
+      removeCase2b();
+      removeCase3aRight();
+      removeCase3aLeft();
+      removeCase3bMergeIntoRight();
+      removeCase3bMergeIntoLeft();
+      manyInsertions();
+      manyInsertions2();
+      reloading();
+      len();
+      containsKey();
+      rangeEmpty();
+      rangeLeafPrefixGreaterThanAllEntries();
+      rangeInternalPrefixGreaterThanAllEntries();
+      rangeVariousPrefixes();
+      rangeVariousPrefixes2();
+      rangeLarge();
+      rangeVariousPrefixesWithOffset();
+      rangeVariousPrefixesWithOffset2();
       suite("Test btreemap module", []);
     };
   

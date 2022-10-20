@@ -94,6 +94,7 @@ module {
         case(?cursor){
           switch(cursor){
             case(#Address(address)){
+              Debug.print("#Address");
               if (address != Constants.NULL){
                 // Load the node at the given address, and add it to the cursors.
                 let node = map_.loadNode(address);
@@ -113,8 +114,9 @@ module {
             case(#Node({node; next;})){
               switch(next){
                 case(#Child(child_idx)){
+                  Debug.print("#Push child: " # Nat64.toText(child_idx));
                   if (Nat64.toNat(child_idx) >= node.getChildren().size()){
-                    Debug.print("Iterating over children went out of bounds.");
+                    Debug.print("Iterating over children went out of bounds."); // @todo: trap?
                   };
                   
                   // After iterating on the child, iterate on the next _entry_ in this node.
@@ -131,13 +133,16 @@ module {
                   return self.next();
                 };
                 case(#Entry(entry_idx)){
+                  if (Nat64.toNat(entry_idx) == 0) {
+                    Debug.print("#Node: " # node.entriesToText());
+                  };
                   if (Nat64.toNat(entry_idx) >= node.getEntries().size()) {
                     // No more entries to iterate on in this node.
                     return self.next();
                   };
 
                   // Take the entry from the node. It's swapped with an empty element to
-                  // avoid cloning.
+                  // avoid cloning. @todo
                   let entry = node.swapEntry(Nat64.toNat(entry_idx), ([], []));
 
                   // Add to the cursors the next element to be traversed.
@@ -167,7 +172,7 @@ module {
                           let prefix_with_offset = Utils.toBuffer<Nat8>(prefix);
                           prefix_with_offset.append(Utils.toBuffer<Nat8>(offset));
                           // Clear all cursors to avoid needless work in subsequent calls.
-                          if (Order.isLess(Node.compareEntryKeys(entry, (prefix_with_offset.toArray(), [])))){  
+                          if (Order.isLess(Node.compareEntryKeys(entry.0, prefix_with_offset.toArray()))){  
                             cursors_ := Stack.Stack<Cursor>();
                             return null;
                           };
