@@ -1,7 +1,6 @@
 import Utils "utils";
 
 import Buffer "mo:base/Buffer";
-import Nat "mo:base/Nat";
 import Nat8 "mo:base/Nat8";
 import Nat16 "mo:base/Nat16";
 import Nat32 "mo:base/Nat32";

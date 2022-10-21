@@ -3,8 +3,6 @@ import Node "node";
 import Constants "constants";
 import Utils "utils";
 
-import Blob "mo:base/Blob";
-import Text "mo:base/Text";
 import Nat64 "mo:base/Nat64";
 import Debug "mo:base/Debug";
 import Stack "mo:base/Stack";
@@ -15,12 +13,8 @@ import Order "mo:base/Order";
 module {
 
   // For convenience: from types module
-  type Address = Types.Address;
-  type NodeType = Types.NodeType;
-  type Entry = Types.Entry;
   type IBTreeMap<K, V> = Types.IBTreeMap<K, V>;
   type Cursor = Types.Cursor;
-  type Index = Types.Index;  
   // For convenience: from node module
   type Node = Node.Node;
 

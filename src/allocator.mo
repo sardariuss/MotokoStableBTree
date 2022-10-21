@@ -4,7 +4,6 @@ import Constants "constants";
 
 import Blob "mo:base/Blob";
 import Text "mo:base/Text";
-import Nat64 "mo:base/Nat64";
 import Debug "mo:base/Debug";
 
 module {
@@ -19,8 +18,6 @@ module {
 
   let ALLOCATOR_MAGIC = "BTA";
   let CHUNK_MAGIC = "CHK";
-
-  let NULL : Nat64 = 0;
 
   /// Initialize an allocator and store it in address `addr`.
   ///

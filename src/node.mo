@@ -5,7 +5,6 @@ import Utils "utils";
 
 import Blob "mo:base/Blob";
 import Text "mo:base/Text";
-import Nat64 "mo:base/Nat64";
 import Debug "mo:base/Debug";
 import Buffer "mo:base/Buffer";
 import Array "mo:base/Array";
@@ -13,7 +12,7 @@ import Iter "mo:base/Iter";
 import Nat8 "mo:base/Nat8";
 import Nat16 "mo:base/Nat16";
 import Nat32 "mo:base/Nat32";
-import Int "mo:base/Int";
+import Nat64 "mo:base/Nat64";
 import Result "mo:base/Result";
 import Order "mo:base/Order";
 

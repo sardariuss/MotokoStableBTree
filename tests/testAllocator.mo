@@ -1,15 +1,9 @@
-import Types "../src/types";
 import VecMemory "../src/memory/vecMemory";
 import Allocator "../src/allocator";
-import Utils "../src/utils";
 import Constants "../src/constants";
 
-import Matchers "mo:matchers/Matchers";
 import Suite "mo:matchers/Suite";
-import Testable "mo:matchers/Testable";
 
-import Buffer "mo:base/Buffer";
-import Debug "mo:base/Debug";
 import Nat64 "mo:base/Nat64";
 import Iter "mo:base/Iter";
 

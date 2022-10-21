@@ -1,14 +1,9 @@
-import Types "../src/types";
 import VecMemory "../src/memory/vecMemory";
 import BTreeMap "../src/btreemap";
-import Utils "../src/utils";
 import Node "../src/node";
 
-import Matchers "mo:matchers/Matchers";
 import Suite "mo:matchers/Suite";
-import Testable "mo:matchers/Testable";
 
-import Buffer "mo:base/Buffer";
 import Iter "mo:base/Iter";
 import Nat64 "mo:base/Nat64";
 import Nat8 "mo:base/Nat8";

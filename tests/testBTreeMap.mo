@@ -2,25 +2,16 @@ import Types "../src/types";
 import VecMemory "../src/memory/vecMemory";
 import BTreeMap "../src/btreemap";
 import Node "../src/node";
-import Allocator "../src/allocator";
 import Utils "../src/utils";
-import Constants "../src/constants";
 import Conversion "../src/conversion";
 
-import Matchers "mo:matchers/Matchers";
 import Suite "mo:matchers/Suite";
-import Testable "mo:matchers/Testable";
 
-import Buffer "mo:base/Buffer";
-import Debug "mo:base/Debug";
 import Nat64 "mo:base/Nat64";
 import Nat32 "mo:base/Nat32";
 import Nat8 "mo:base/Nat8";
 import Iter "mo:base/Iter";
 import Int "mo:base/Int";
-import Nat "mo:base/Nat";
-import Text "mo:base/Text";
-import Array "mo:base/Array";
 
 module {
 

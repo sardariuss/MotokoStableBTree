@@ -108,7 +108,7 @@ module {
     isEmpty : () -> Bool;
     remove : (key: K) -> ?V;
     iter : () -> IIter<K, V>;
-     loadNode : (address: Address) -> INode;
+    loadNode : (address: Address) -> INode;
   };
 
 };

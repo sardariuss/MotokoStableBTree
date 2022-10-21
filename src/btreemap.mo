@@ -17,7 +17,6 @@ import Nat64 "mo:base/Nat64";
 import Order "mo:base/Order";
 import Buffer "mo:base/Buffer";
 import Nat8 "mo:base/Nat8";
-import Nat "mo:base/Nat";
 
 module {
 
@@ -25,7 +24,6 @@ module {
   type Result<Ok, Err> = Result.Result<Ok, Err>;
   // For convenience: from types module
   type Address = Types.Address;
-  type Bytes = Types.Bytes;
   type Memory = Types.Memory;
   type BytesConverter<T> = Types.BytesConverter<T>;
   type InsertError = Types.InsertError;

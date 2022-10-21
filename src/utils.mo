@@ -1,10 +1,8 @@
 import Buffer "mo:base/Buffer";
 import Result "mo:base/Result";
-import Array "mo:base/Array";
 import List "mo:base/List";
 import Debug "mo:base/Debug";
 import Order "mo:base/Order";
-import Iter "mo:base/Iter";
 import Int "mo:base/Int";
 
 module {
@@ -12,7 +10,6 @@ module {
   // For convenience: from base module
   type Buffer<T> = Buffer.Buffer<T>;
   type Order = Order.Order;
-  type Iter<T> = Iter.Iter<T>;
   type Result<K, V> = Result.Result<K, V>;
 
   /// Creates a buffer from an array
