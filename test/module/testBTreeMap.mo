@@ -1,9 +1,9 @@
-import Types "../src/types";
-import VecMemory "../src/memory/vecMemory";
-import BTreeMap "../src/btreemap";
-import Node "../src/node";
-import Utils "../src/utils";
-import Conversion "../src/conversion";
+import Types "../../src/types";
+import VecMemory "../../src/memory/vecMemory";
+import BTreeMap "../../src/btreemap";
+import Node "../../src/node";
+import Utils "../../src/utils";
+import Conversion "../../src/conversion";
 
 import Suite "mo:matchers/Suite";
 

@@ -1,6 +1,6 @@
-import VecMemory "../src/memory/vecMemory";
-import Allocator "../src/allocator";
-import Constants "../src/constants";
+import VecMemory "../../src/memory/vecMemory";
+import Allocator "../../src/allocator";
+import Constants "../../src/constants";
 
 import Suite "mo:matchers/Suite";
 

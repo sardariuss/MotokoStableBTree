@@ -1,6 +1,6 @@
-import MemoryManager "../src/memoryManager";
-import VecMemory "../src/memory/vecMemory";
-import Constants "../src/constants";
+import MemoryManager "../../src/memoryManager";
+import VecMemory "../../src/memory/vecMemory";
+import Constants "../../src/constants";
 
 import Suite "mo:matchers/Suite";
 

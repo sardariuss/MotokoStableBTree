@@ -1,6 +1,6 @@
-import VecMemory "../src/memory/vecMemory";
-import BTreeMap "../src/btreemap";
-import Node "../src/node";
+import VecMemory "../../src/memory/vecMemory";
+import BTreeMap "../../src/btreemap";
+import Node "../../src/node";
 
 import Suite "mo:matchers/Suite";
 

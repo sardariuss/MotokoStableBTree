@@ -314,9 +314,9 @@ module {
     public let memory_ : Memory = memory;
     // The number of buckets that have been allocated.
     var allocated_buckets_ : Nat16 = allocated_buckets;
-    public let bucket_size_in_pages_ : Nat16 = bucket_size_in_pages;
+    let bucket_size_in_pages_ : Nat16 = bucket_size_in_pages;
     // An array storing the size (in pages) of each of the managed memories.
-    public let memory_sizes_in_pages_ : [var Nat64] = memory_sizes_in_pages;
+    let memory_sizes_in_pages_ : [var Nat64] = memory_sizes_in_pages;
     // A map mapping each managed memory to the bucket ids that are allocated to it.
     public let memory_buckets_ : RBTree<MemoryId, Buffer<BucketId>> = memory_buckets;
 
