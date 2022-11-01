@@ -191,11 +191,11 @@ module {
     /// To convert the value into/from bytes.
     let value_converter_ : BytesConverter<V> = members.value_converter;
     // An allocator used for managing memory and allocating nodes.
-    var allocator_ : Allocator = members.allocator;
+    let allocator_ : Allocator = members.allocator;
     // The number of elements in the map.
     var length_ : Nat64 = members.length;
     /// The memory used to load/save the map.
-    var memory_ : Memory = members.memory;
+    let memory_ : Memory = members.memory;
 
     /// Getters
     public func getRootAddr() : Address { root_addr_; };

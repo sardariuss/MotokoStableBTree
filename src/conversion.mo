@@ -210,7 +210,6 @@ module {
     let result = Utils.toBuffer<Nat8>([c]);
     result.append(Utils.toBuffer<Nat8>(List.toArray<Nat8>(bytes)));
     result.toArray();
-    //Array.append<Nat8>([c],List.toArray<Nat8>(bytes));
   };
 
   public func bytesToInt(_bytes : [Nat8]) : Int{
@@ -228,6 +227,32 @@ module {
       n *= -1;
     };
     return n;
+  };
+
+  public func bytesToNat64Array(array: [Nat8]) : [Nat64] {
+    assert(array.size() % 8 == 0);
+    let size = array.size() / 8;
+    let buffer = Buffer.Buffer<Nat64>(size);
+    for (idx in Iter.range(0, size - 1)){
+      buffer.add(
+        (Nat64.fromNat(Nat8.toNat(array[idx])) << 56) +
+        (Nat64.fromNat(Nat8.toNat(array[idx + 1])) << 48) +
+        (Nat64.fromNat(Nat8.toNat(array[idx + 2])) << 40) +
+        (Nat64.fromNat(Nat8.toNat(array[idx + 3])) << 32) +
+        (Nat64.fromNat(Nat8.toNat(array[idx + 4])) << 24) +
+        (Nat64.fromNat(Nat8.toNat(array[idx + 5])) << 16) +
+        (Nat64.fromNat(Nat8.toNat(array[idx + 6])) << 8) +
+        (Nat64.fromNat(Nat8.toNat(array[idx + 7]))));
+    };
+    buffer.toArray();
+  };
+
+  public func nat64ArrayToBytes(array: [Nat64]) : [Nat8] {
+    let buffer = Buffer.Buffer<[Nat8]>(array.size() * 8);
+    for (nat64 in Array.vals(array)){
+      buffer.add(nat64ToBytes(nat64));
+    };
+    Array.flatten(buffer.toArray());
   };
 
 };
