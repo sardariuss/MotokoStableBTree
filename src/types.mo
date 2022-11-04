@@ -17,6 +17,7 @@ module {
 
   public type Memory = {
     size: () -> Nat64;
+    grow: (Nat64) -> Int64;
     store: (Nat64, [Nat8]) -> ();
     load: (Nat64, Nat) -> [Nat8];
   };

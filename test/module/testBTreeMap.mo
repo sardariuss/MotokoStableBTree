@@ -1,5 +1,5 @@
 import Types "../../src/types";
-import VecMemory "../../src/memory/vecMemory";
+import Memory "../../src/memory";
 import BTreeMap "../../src/btreemap";
 import Node "../../src/node";
 import Utils "../../src/utils";
@@ -37,7 +37,7 @@ module {
     };
 
     func initPreservesData() {
-      let mem = VecMemory.VecMemory();
+      let mem = Memory.VecMemory();
       var btree = BTreeMap.init<[Nat8], [Nat8]>(mem, 3, 4, bytes_passtrough, bytes_passtrough);
       assert(btree.insert([1, 2, 3], [4, 5, 6]) == #ok(null));
       assert(btree.get([1, 2, 3]) == ?([4, 5, 6]));
@@ -50,7 +50,7 @@ module {
     };
   
     func insertGet() {
-      let mem = VecMemory.VecMemory();
+      let mem = Memory.VecMemory();
       let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 3, 4, bytes_passtrough, bytes_passtrough);
   
       assert(btree.insert([1, 2, 3], [4, 5, 6]) == #ok(null));
@@ -58,7 +58,7 @@ module {
     };
   
     func insertOverwritesPreviousValue() {
-      let mem = VecMemory.VecMemory();
+      let mem = Memory.VecMemory();
       let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
   
       assert(btree.insert([1, 2, 3], [4, 5, 6]) == #ok(null));
@@ -67,7 +67,7 @@ module {
     };
   
     func insertGetMultiple() {
-      let mem = VecMemory.VecMemory();
+      let mem = Memory.VecMemory();
       let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
   
       assert(btree.insert([1, 2, 3] , [4, 5, 6]) == #ok(null));
@@ -79,7 +79,7 @@ module {
     };
   
     func insertOverwriteMedianKeyInFullChildNode() {
-      let mem = VecMemory.VecMemory();
+      let mem = Memory.VecMemory();
       let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
   
       for (i in Iter.range(1, 17)) {
@@ -115,7 +115,7 @@ module {
     };
   
     func insertOverwriteKeyInFullRootNode() {
-      let mem = VecMemory.VecMemory();
+      let mem = Memory.VecMemory();
       let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
   
       for (i in Iter.range(1, 11)) {
@@ -138,7 +138,7 @@ module {
     };
   
     func allocations() {
-      let mem = VecMemory.VecMemory();
+      let mem = Memory.VecMemory();
       let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
   
       for (i in Iter.range(0, Nat64.toNat(Node.getCapacity() - 1))) {
@@ -155,7 +155,7 @@ module {
     };
   
     func allocations2() {
-      let mem = VecMemory.VecMemory();
+      let mem = Memory.VecMemory();
       let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
       assert(btree.getAllocator().getNumAllocatedChunks() == 0);
   
@@ -167,7 +167,7 @@ module {
     };
   
     func insertSameKeyMultiple() {
-      let mem = VecMemory.VecMemory();
+      let mem = Memory.VecMemory();
       let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
   
       assert(btree.insert([1], [2]) == #ok(null));
@@ -178,7 +178,7 @@ module {
     };
   
     func insertSplitNode() {
-      let mem = VecMemory.VecMemory();
+      let mem = Memory.VecMemory();
       let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
   
       for (i in Iter.range(1, 11)) {
@@ -199,7 +199,7 @@ module {
     };
   
     func overwriteTest() {
-      let mem = VecMemory.VecMemory();
+      let mem = Memory.VecMemory();
       let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
   
       let num_elements = 255;
@@ -223,7 +223,7 @@ module {
     };
   
     func insertSplitMultipleNodes() {
-      let mem = VecMemory.VecMemory();
+      let mem = Memory.VecMemory();
       let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
   
       for (i in Iter.range(1, 11)) {
@@ -333,7 +333,7 @@ module {
     };
   
     func removeSimple() {
-      let mem = VecMemory.VecMemory();
+      let mem = Memory.VecMemory();
       let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
   
       assert(btree.insert([1, 2, 3], [4, 5, 6]) == #ok(null));
@@ -343,7 +343,7 @@ module {
     };
   
     func removeCase2aAnd2c() {
-      let mem = VecMemory.VecMemory();
+      let mem = Memory.VecMemory();
       var btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
   
       for (i in Iter.range(1, 11)) {
@@ -403,7 +403,7 @@ module {
     };
   
     func removeCase2b() {
-      let mem = VecMemory.VecMemory();
+      let mem = Memory.VecMemory();
       let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
   
       for (i in Iter.range(1, 11)) {
@@ -466,7 +466,7 @@ module {
     };
   
     func removeCase3aRight() {
-      let mem = VecMemory.VecMemory();
+      let mem = Memory.VecMemory();
       let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
   
       for (i in Iter.range(1, 11)) {
@@ -506,7 +506,7 @@ module {
     };
   
     func removeCase3aLeft() {
-      let mem = VecMemory.VecMemory();
+      let mem = Memory.VecMemory();
       let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
   
       for (i in Iter.range(1, 11)) {
@@ -545,7 +545,7 @@ module {
     };
   
     func removeCase3bMergeIntoRight() {
-      let mem = VecMemory.VecMemory();
+      let mem = Memory.VecMemory();
       var btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
   
       for (i in Iter.range(1, 11)) {
@@ -617,7 +617,7 @@ module {
     };
   
     func removeCase3bMergeIntoLeft() {
-      let mem = VecMemory.VecMemory();
+      let mem = Memory.VecMemory();
       var btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
   
       for (i in Iter.range(1, 11)) {
@@ -680,7 +680,7 @@ module {
     };
   
     func manyInsertions() {
-      let mem = VecMemory.VecMemory();
+      let mem = Memory.VecMemory();
       var btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
   
       for (j in Iter.range(0, 10)) {
@@ -718,7 +718,7 @@ module {
     };
   
     func manyInsertions2() {
-      let mem = VecMemory.VecMemory();
+      let mem = Memory.VecMemory();
       var btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
   
       for (j in Iter.revRange(10, 0)) {
@@ -756,7 +756,7 @@ module {
     };
   
     func reloading() {
-      let mem = VecMemory.VecMemory();
+      let mem = Memory.VecMemory();
       var btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
   
       // The btree is initially empty.
@@ -789,7 +789,7 @@ module {
     };
   
     func len() {
-      let mem = VecMemory.VecMemory();
+      let mem = Memory.VecMemory();
       let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
   
       for (i in Iter.range(0, 999)) {
@@ -808,7 +808,7 @@ module {
     };
   
     func containsKey() {
-      let mem = VecMemory.VecMemory();
+      let mem = Memory.VecMemory();
       let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
   
       // Insert even numbers from 0 to 1000.
@@ -824,7 +824,7 @@ module {
     };
   
     func rangeEmpty() {
-      let mem = VecMemory.VecMemory();
+      let mem = Memory.VecMemory();
       let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
   
       // Test prefixes that don't exist in the map.
@@ -834,7 +834,7 @@ module {
   
     // Tests the case where the prefix is larger than all the entries in a leaf node.
     func rangeLeafPrefixGreaterThanAllEntries() {
-      let mem = VecMemory.VecMemory();
+      let mem = Memory.VecMemory();
       let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
   
       ignore btree.insert([0], []);
@@ -845,7 +845,7 @@ module {
   
     // Tests the case where the prefix is larger than all the entries in an internal node.
     func rangeInternalPrefixGreaterThanAllEntries() {
-      let mem = VecMemory.VecMemory();
+      let mem = Memory.VecMemory();
       let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
   
       for (i in Iter.range(1, 12)) {
@@ -865,7 +865,7 @@ module {
     };
   
     func rangeVariousPrefixes() {
-      let mem = VecMemory.VecMemory();
+      let mem = Memory.VecMemory();
       let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
   
       ignore btree.insert([0, 1], []);
@@ -926,7 +926,7 @@ module {
     };
   
     func rangeVariousPrefixes2() {
-      let mem = VecMemory.VecMemory();
+      let mem = Memory.VecMemory();
       let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
   
       ignore btree.insert([0, 1], []);
@@ -1035,7 +1035,7 @@ module {
     };
   
     func rangeLarge() {
-      let mem = VecMemory.VecMemory();
+      let mem = Memory.VecMemory();
       let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
   
       // Insert 1000 elements with prefix 0 and another 1000 elements with prefix 1.
@@ -1063,7 +1063,7 @@ module {
     };
   
     func rangeVariousPrefixesWithOffset() {
-      let mem = VecMemory.VecMemory();
+      let mem = Memory.VecMemory();
       let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
   
       ignore btree.insert([0, 1], []);
@@ -1114,7 +1114,7 @@ module {
     };
   
     func rangeVariousPrefixesWithOffset2() {
-      let mem = VecMemory.VecMemory();
+      let mem = Memory.VecMemory();
       let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
   
       ignore btree.insert([0, 1], []);

@@ -1,7 +1,7 @@
 import StableBTree "../../../src/btreemap";
 import StableBTreeTypes "../../../src/types";
 import Conversion "../../../src/conversion";
-import StableMemory "../../../src/memory/stableMemory";
+import Memory "../../../src/memory";
 
 import Result "mo:base/Result";
 import Array "mo:base/Array";
@@ -35,7 +35,7 @@ actor class Test(args: {
     toBytes = func(text: Text) : [Nat8] { Conversion.textToBytes(text); };
   };
 
-  let btreemap_ = StableBTree.init<K, V>(StableMemory.STABLE_MEMORY, args.max_key_size, args.max_value_size, nat32_converter_, text_converter_);
+  let btreemap_ = StableBTree.init<K, V>(Memory.STABLE_MEMORY, args.max_key_size, args.max_value_size, nat32_converter_, text_converter_);
 
   public func getLength() : async Nat64 {
     btreemap_.getLength();

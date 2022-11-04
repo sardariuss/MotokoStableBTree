@@ -1,6 +1,7 @@
 import Types "types";
 import Conversion "conversion";
 import Constants "constants";
+import Memory "memory";
 
 import Blob "mo:base/Blob";
 import Text "mo:base/Text";
@@ -53,13 +54,13 @@ module {
   public func loadAllocator(memory: Memory, addr: Address) : Allocator {
     
     let header = {
-      magic                =                         memory.load(addr,                         3);
-      version              =                         memory.load(addr + 3,                     1)[0];
-      _alignment           =                         memory.load(addr + 3 + 1,                 4);
-      allocation_size      = Conversion.bytesToNat64(memory.load(addr + 3 + 1 + 4,             8));
-      num_allocated_chunks = Conversion.bytesToNat64(memory.load(addr + 3 + 1 + 4 + 8,         8));
-      free_list_head       = Conversion.bytesToNat64(memory.load(addr + 3 + 1 + 4 + 8 + 8,     8));
-      _buffer              =                         memory.load(addr + 3 + 1 + 4 + 8 + 8 + 8, 16);
+      magic                =                         Memory.read(memory, addr,                         3);
+      version              =                         Memory.read(memory, addr + 3,                     1)[0];
+      _alignment           =                         Memory.read(memory, addr + 3 + 1,                 4);
+      allocation_size      = Conversion.bytesToNat64(Memory.read(memory, addr + 3 + 1 + 4,             8));
+      num_allocated_chunks = Conversion.bytesToNat64(Memory.read(memory, addr + 3 + 1 + 4 + 8,         8));
+      free_list_head       = Conversion.bytesToNat64(Memory.read(memory, addr + 3 + 1 + 4 + 8 + 8,     8));
+      _buffer              =                         Memory.read(memory, addr + 3 + 1 + 4 + 8 + 8 + 8, 16);
     };
 
     if (header.magic != Blob.toArray(Text.encodeUtf8(ALLOCATOR_MAGIC))) { Debug.trap("Bad magic."); };
@@ -225,13 +226,13 @@ module {
       let header = getHeader();
       let addr = header_addr_;
 
-      memory_.store(addr,                                                                 header.magic);
-      memory_.store(addr + 3,                                                         [header.version]);
-      memory_.store(addr + 3 + 1,                                                    header._alignment);
-      memory_.store(addr + 3 + 1 + 4,                  Conversion.nat64ToBytes(header.allocation_size));
-      memory_.store(addr + 3 + 1 + 4 + 8,         Conversion.nat64ToBytes(header.num_allocated_chunks));
-      memory_.store(addr + 3 + 1 + 4 + 8 + 8,           Conversion.nat64ToBytes(header.free_list_head));
-      memory_.store(addr + 3 + 1 + 4 + 8 + 8 + 8,                                       header._buffer);
+      Memory.write(memory_, addr,                                                                 header.magic);
+      Memory.write(memory_, addr + 3,                                                         [header.version]);
+      Memory.write(memory_, addr + 3 + 1,                                                    header._alignment);
+      Memory.write(memory_, addr + 3 + 1 + 4,                  Conversion.nat64ToBytes(header.allocation_size));
+      Memory.write(memory_, addr + 3 + 1 + 4 + 8,         Conversion.nat64ToBytes(header.num_allocated_chunks));
+      Memory.write(memory_, addr + 3 + 1 + 4 + 8 + 8,           Conversion.nat64ToBytes(header.free_list_head));
+      Memory.write(memory_, addr + 3 + 1 + 4 + 8 + 8 + 8,                                       header._buffer);
     };
 
     // The full size of a chunk, which is the size of the header + the `allocation_size` that's
@@ -291,20 +292,20 @@ module {
   };
 
   func saveChunkHeader(header: ChunkHeader, addr: Address, memory: Memory) {
-    memory.store(addr,                                              header.magic);
-    memory.store(addr + 3,                                      [header.version]);
-    memory.store(addr + 3 + 1,          Conversion.boolToBytes(header.allocated));
-    memory.store(addr + 3 + 1 + 1,                             header._alignment);
-    memory.store(addr + 3 + 1 + 1 + 3,      Conversion.nat64ToBytes(header.next));
+    Memory.write(memory, addr,                                              header.magic);
+    Memory.write(memory, addr + 3,                                      [header.version]);
+    Memory.write(memory, addr + 3 + 1,          Conversion.boolToBytes(header.allocated));
+    Memory.write(memory, addr + 3 + 1 + 1,                             header._alignment);
+    Memory.write(memory, addr + 3 + 1 + 1 + 3,      Conversion.nat64ToBytes(header.next));
   };
 
   public func loadChunkHeader(addr: Address, memory: Memory) : ChunkHeader {
     let header = {
-      magic =                            memory.load(addr,                 3);
-      version =                          memory.load(addr + 3,             1)[0];
-      allocated = Conversion.bytesToBool(memory.load(addr + 3 + 1,         1));
-      _alignment =                       memory.load(addr + 3 + 1 + 1,     3);
-      next =     Conversion.bytesToNat64(memory.load(addr + 3 + 1 + 1 + 3, 8));
+      magic =                            Memory.read(memory, addr,                 3);
+      version =                          Memory.read(memory, addr + 3,             1)[0];
+      allocated = Conversion.bytesToBool(Memory.read(memory, addr + 3 + 1,         1));
+      _alignment =                       Memory.read(memory, addr + 3 + 1 + 1,     3);
+      next =     Conversion.bytesToNat64(Memory.read(memory, addr + 3 + 1 + 1 + 3, 8));
     };
     if (header.magic != Blob.toArray(Text.encodeUtf8(CHUNK_MAGIC))) { Debug.trap("Bad magic."); };
     if (header.version != CHUNK_LAYOUT_VERSION)                     { Debug.trap("Unsupported version."); };

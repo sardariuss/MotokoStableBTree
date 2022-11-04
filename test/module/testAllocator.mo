@@ -1,4 +1,4 @@
-import VecMemory "../../src/memory/vecMemory";
+import Memory "../../src/memory";
 import Allocator "../../src/allocator";
 import Constants "../../src/constants";
 
@@ -17,7 +17,7 @@ module {
   public class TestAllocator() = {
 
     func newAndLoad() {
-      let memory = VecMemory.VecMemory();
+      let memory = Memory.VecMemory();
       let allocator_addr = Constants.ADDRESS_0;
       let allocation_size : Nat64 = 16;
 
@@ -36,7 +36,7 @@ module {
     };
 
     func allocate() {
-      let memory = VecMemory.VecMemory();
+      let memory = Memory.VecMemory();
       let allocator_addr = Constants.ADDRESS_0;
       let allocation_size : Nat64 = 16;
 
@@ -52,7 +52,7 @@ module {
 
     func allocateLarge() {
       // Allocate large chunks to verify that we are growing the memory.
-      let memory = VecMemory.VecMemory();
+      let memory = Memory.VecMemory();
       assert(memory.size() == 0);
       let allocator_addr = Constants.ADDRESS_0;
       let allocation_size = Constants.WASM_PAGE_SIZE;
@@ -80,7 +80,7 @@ module {
     };
 
     func allocateThenDeallocate() {
-      let memory = VecMemory.VecMemory();
+      let memory = Memory.VecMemory();
       let allocation_size : Nat64 = 16;
       let allocator_addr = Constants.ADDRESS_0;
       var allocator = Allocator.initAllocator(memory, allocator_addr, allocation_size);
@@ -99,7 +99,7 @@ module {
     };
 
     func allocateThenDeallocate2() {
-      let memory = VecMemory.VecMemory();
+      let memory = Memory.VecMemory();
       let allocation_size : Nat64 = 16;
       let allocator_addr = Constants.ADDRESS_0;
       var allocator = Allocator.initAllocator(memory, allocator_addr, allocation_size);
@@ -117,7 +117,7 @@ module {
     };
 
     func deallocateFreeChunk() {
-      let memory = VecMemory.VecMemory();
+      let memory = Memory.VecMemory();
       let allocation_size : Nat64 = 16;
       let allocator_addr = Constants.ADDRESS_0;
       let allocator = Allocator.initAllocator(memory, allocator_addr, allocation_size);
@@ -126,7 +126,7 @@ module {
       allocator.deallocate(chunk_addr);
 
       // Try deallocating the free chunk - should trap.
-      // @todo: how to test this in motoko ?
+      // @todo: succeed on trap
       //allocator.deallocate(chunk_addr);
     };
 

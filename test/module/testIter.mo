@@ -1,4 +1,4 @@
-import VecMemory "../../src/memory/vecMemory";
+import Memory "../../src/memory";
 import BTreeMap "../../src/btreemap";
 import Node "../../src/node";
 
@@ -23,7 +23,7 @@ module {
       };
 
       // Iterate on leaf
-      let memory = VecMemory.VecMemory();
+      let memory = Memory.VecMemory();
       let btree = BTreeMap.new<[Nat8], [Nat8]>(memory, 1, 1, bytes_passtrough, bytes_passtrough);
 
       for (i in Iter.range(0, Nat64.toNat(Node.getCapacity() - 1))){
@@ -47,7 +47,7 @@ module {
       };
 
       // Iterate on leaf
-      let memory = VecMemory.VecMemory();
+      let memory = Memory.VecMemory();
       let btree = BTreeMap.new<[Nat8], [Nat8]>(memory, 1, 1, bytes_passtrough, bytes_passtrough);
 
       // Insert the elements in reverse order.

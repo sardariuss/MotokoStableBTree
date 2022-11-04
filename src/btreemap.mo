@@ -5,6 +5,7 @@ import Node "node";
 import Constants "constants";
 import Iter "iter";
 import Utils "utils";
+import Memory "memory";
 
 import Result "mo:base/Result";
 import Option "mo:base/Option";
@@ -57,7 +58,7 @@ module {
     };
 
     // Check if the magic in the memory corresponds to a BTreeMap.
-    let dst = memory.load(0, 3);
+    let dst = Memory.read(memory, 0, 3);
     if (dst != Blob.toArray(Text.encodeUtf8(MAGIC))) {
       // No BTreeMap found. Create a new instance.
       return new(memory, max_key_size, max_value_size, key_converter, value_converter);
@@ -141,24 +142,24 @@ module {
   };
 
   func saveBTreeHeader(header: BTreeHeader, addr: Address, memory: Memory) {
-    memory.store(addr                        ,                                   header.magic);
-    memory.store(addr + 3                    ,                               [header.version]);
-    memory.store(addr + 3 + 1                ,   Conversion.nat32ToBytes(header.max_key_size));
-    memory.store(addr + 3 + 1 + 4            , Conversion.nat32ToBytes(header.max_value_size));
-    memory.store(addr + 3 + 1 + 4 + 4        ,      Conversion.nat64ToBytes(header.root_addr));
-    memory.store(addr + 3 + 1 + 4 + 4 + 8    ,         Conversion.nat64ToBytes(header.length));
-    memory.store(addr + 3 + 1 + 4 + 4 + 8 + 8,                                 header._buffer);
+    Memory.write(memory, addr                        ,                                   header.magic);
+    Memory.write(memory, addr + 3                    ,                               [header.version]);
+    Memory.write(memory, addr + 3 + 1                ,   Conversion.nat32ToBytes(header.max_key_size));
+    Memory.write(memory, addr + 3 + 1 + 4            , Conversion.nat32ToBytes(header.max_value_size));
+    Memory.write(memory, addr + 3 + 1 + 4 + 4        ,      Conversion.nat64ToBytes(header.root_addr));
+    Memory.write(memory, addr + 3 + 1 + 4 + 4 + 8    ,         Conversion.nat64ToBytes(header.length));
+    Memory.write(memory, addr + 3 + 1 + 4 + 4 + 8 + 8,                                 header._buffer);
   };
 
   func loadBTreeHeader(addr: Address, memory: Memory) : BTreeHeader {
     let header = {
-      magic =                                  memory.load(addr                        , 3);
-      version =                                memory.load(addr + 3                    , 1)[0];
-      max_key_size =   Conversion.bytesToNat32(memory.load(addr + 3 + 1                , 4));
-      max_value_size = Conversion.bytesToNat32(memory.load(addr + 3 + 1 + 4            , 4));
-      root_addr =      Conversion.bytesToNat64(memory.load(addr + 3 + 1 + 4 + 4        , 8));
-      length =         Conversion.bytesToNat64(memory.load(addr + 3 + 1 + 4 + 4 + 8    , 8));
-      _buffer =                                memory.load(addr + 3 + 1 + 4 + 4 + 8 + 8, 24);
+      magic =                                  Memory.read(memory, addr                        , 3);
+      version =                                Memory.read(memory, addr + 3                    , 1)[0];
+      max_key_size =   Conversion.bytesToNat32(Memory.read(memory, addr + 3 + 1                , 4));
+      max_value_size = Conversion.bytesToNat32(Memory.read(memory, addr + 3 + 1 + 4            , 4));
+      root_addr =      Conversion.bytesToNat64(Memory.read(memory, addr + 3 + 1 + 4 + 4        , 8));
+      length =         Conversion.bytesToNat64(Memory.read(memory, addr + 3 + 1 + 4 + 4 + 8    , 8));
+      _buffer =                                Memory.read(memory, addr + 3 + 1 + 4 + 4 + 8 + 8, 24);
     };
     if (header.magic != Blob.toArray(Text.encodeUtf8(MAGIC))) { Debug.trap("Bad magic."); };
     if (header.version != LAYOUT_VERSION)                     { Debug.trap("Unsupported version."); };
