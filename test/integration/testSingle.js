@@ -1,5 +1,5 @@
 import { HttpAgent, Actor } from "@dfinity/agent";
-import { idlFactory } from "./.dfx/local/canisters/test/test.did.js";
+import { idlFactory } from "./.dfx/local/canisters/singleBTree/singleBTree.did.js";
 import fetch from "node-fetch";
 import { test } from "tape";
 // From https://stackoverflow.com/a/74018376/6021706
@@ -18,17 +18,17 @@ agent.fetchRootKey().catch((err) => {
   console.error(err);
 });
 
-const test_actor = Actor.createActor(idlFactory, {
+const single_b_tree = Actor.createActor(idlFactory, {
   agent: agent,
-  canisterId: canister_ids["test"]["local"]
+  canisterId: canister_ids["singleBTree"]["local"]
 });
 
 let NUM_INSERTIONS = 5000;
 
 test('random_insertions', async function (t) {
   // Remove previous entries in the btree if any
-  await test_actor.empty();
-  t.equal(await test_actor.getLength(), 0n);
+  await single_b_tree.empty();
+  t.equal(await single_b_tree.getLength(), 0n);
 
   // Insert NUM_INSERTIONS random entries
   let random_keys = [];
@@ -42,21 +42,21 @@ test('random_insertions', async function (t) {
   const entries = random_keys.map(key => [key, key.toString()]);
 
   // Verify the insertion works
-  t.ok(await test_actor.insertMany(entries));
+  t.ok(await single_b_tree.insertMany(entries));
 
   const unique_keys = [...new Set(random_keys)];
 
   // Verify the length of the btree
-  t.equal(await test_actor.getLength(), BigInt(unique_keys.length));
+  t.equal(await single_b_tree.getLength(), BigInt(unique_keys.length));
 
   // Verify retrieving each value works (use join to compare array's content)
-  t.equal((await test_actor.getMany(unique_keys)).join(""), unique_keys.map(key => key.toString()).join(""));
+  t.equal((await single_b_tree.getMany(unique_keys)).join(""), unique_keys.map(key => key.toString()).join(""));
 });
 
 test('increasing_insertions', async function (t) {
   // Remove previous entries in the btree if any
-  await test_actor.empty();
-  t.equal(await test_actor.getLength(), 0n);
+  await single_b_tree.empty();
+  t.equal(await single_b_tree.getLength(), 0n);
 
   // Insert NUM_INSERTIONS increasing entries
   let entries = [];
@@ -67,17 +67,17 @@ test('increasing_insertions', async function (t) {
   let values = entries.map(entry => entry[1]);
 
   // Verify the insertion works
-  t.ok(await test_actor.insertMany(entries));
+  t.ok(await single_b_tree.insertMany(entries));
   // Verify the length of the btree
-  t.equal(await test_actor.getLength(), BigInt(entries.length));
+  t.equal(await single_b_tree.getLength(), BigInt(entries.length));
   // Verify retrieving each value works (use join to compare array's content)
-  t.equal((await test_actor.getMany(keys)).join(""), values.join(""));
+  t.equal((await single_b_tree.getMany(keys)).join(""), values.join(""));
 });
 
 test('decreasing_insertions', async function (t) {
   // Remove previous entries in the btree if any
-  await test_actor.empty();
-  t.equal(await test_actor.getLength(), 0n);
+  await single_b_tree.empty();
+  t.equal(await single_b_tree.getLength(), 0n);
 
   // Insert NUM_INSERTIONS decreasing entries
   let entries = [];
@@ -88,9 +88,9 @@ test('decreasing_insertions', async function (t) {
   let values = entries.map(entry => entry[1]);
 
   // Verify the insertion works
-  t.ok(await test_actor.insertMany(entries));
+  t.ok(await single_b_tree.insertMany(entries));
   // Verify the length of the btree
-  t.equal(await test_actor.getLength(), BigInt(entries.length));
+  t.equal(await single_b_tree.getLength(), BigInt(entries.length));
   // Verify retrieving each value works (use join to compare array's content)
-  t.equal((await test_actor.getMany(keys)).join(""), values.join(""));
+  t.equal((await single_b_tree.getMany(keys)).join(""), values.join(""));
 });

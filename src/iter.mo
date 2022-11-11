@@ -150,7 +150,7 @@ module {
                   switch(prefix_){
                     case(null) {};
                     case(?prefix){
-                      if (not Utils.startsWith(entry.0, prefix, Nat8.compare)){
+                      if (not Utils.isPrefixOf(prefix, entry.0, Nat8.equal)){
                         // Clear all cursors to avoid needless work in subsequent calls.
                         cursors_ := Stack.Stack<Cursor>();
                         return null;

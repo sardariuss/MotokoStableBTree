@@ -98,56 +98,69 @@ module {
     };
   };
 
-  /// Similar as Rust's lexicographical-comparison.
-  /// Two sequences are compared element by element.
-  /// The first mismatching element defines which sequence is lexicographically less or greater than the other.
-  /// If one sequence is a prefix of another, the shorter sequence is lexicographically less than the other.
-  /// If two sequence have equivalent elements and are of the same length, then the sequences are lexicographically equal.
-  /// An empty sequence is lexicographically less than any non-empty sequence.
-  /// Two empty sequences are lexicographically equal.
-  public func lexicographicallyCompare<T>(left: [T], right: [T], order: (T, T) -> Order) : Order {
-    let left_size = left.size();
-    let right_size = right.size();
-    var idx : Nat = 0;
-    // Iterate on left array
-    while (idx < left_size){
-      // If so far the array were equal, but right is shorter than left
-      // it means it is a prefix of left, so left is greater.
-      if (idx >= right_size){
-        return #greater;
+  /// *Copied from the motoko-base library*
+  ///
+  /// Defines comparison for two arrays, using `compare` to recursively compare elements in the
+  /// arrays. Comparison is defined lexicographically.
+  ///
+  /// Runtime: O(size)
+  ///
+  /// Space: O(1)
+  ///
+  /// *Runtime and space assumes that `compare` runs in O(1) time and space.
+  public func lexicographicallyCompare<X>(array1 : [X], array2 : [X], compare : (X, X) -> Order.Order) : Order.Order {
+    let size1 = array1.size();
+    let size2 = array2.size();
+    let minSize = if (size1 < size2) { size1 } else { size2 };
+
+    var i = 0;
+    while (i < minSize) {
+      switch (compare(array1[i], array2[i])) {
+        case (#less) {
+          return #less;
+        };
+        case (#greater) {
+          return #greater;
+        };
+        case _ {};
       };
-      switch(order(left[idx], right[idx])){
-        case(#less) { return #less; };
-        case(#greater) { return #greater; };
-        case(_) {}; // Continue iterating.
-      };
-      idx += 1;
+      i += 1;
     };
-    // If we arrive here, it means at least left is contained in right
-    if (left_size == right_size){
-      return #equal;
+
+    if (size1 < size2) {
+      #less;
+    } else if (size1 == size2) {
+      #equal;
+    } else {
+      #greater;
     };
-    // Left is a prefix of right, so left is lesser.
-    return #less;
   };
 
-  /// Check if the array starts with the given prefix.
-  public func startsWith<T>(array: [T], prefix: [T], order: (T, T) -> Order) : Bool {
-    let prefix_size = prefix.size();
-    // If the prefix is bigger, return false
-    if (prefix_size > array.size()) {
+  /// *Copied from the motoko-base library*
+  ///
+  /// Checks if `prefix` is a prefix of `array`. Uses `equal` to
+  /// compare elements.
+  ///
+  /// Runtime: O(size of prefix)
+  ///
+  /// Space: O(size of prefix)
+  ///
+  /// *Runtime and space assumes that `equal` runs in O(1) time and space.
+  public func isPrefixOf<X>(prefix : [X], array : [X], equal : (X, X) -> Bool) : Bool {
+    let sizePrefix = prefix.size();
+    if (array.size() < sizePrefix) {
       return false;
     };
-    var idx : Nat = 0;
-    // Iterate on the prefix
-    while (idx < prefix_size){
-      switch(order(array[idx], prefix[idx])){
-        case(#equal) {}; // Values are equal, continue iterating.
-        case(_) { return false; }; // Values are not equal, the array does not start with the prefix.
+
+    var i = 0;
+    while (i < sizePrefix) {
+      if (not equal(array[i], prefix[i])) {
+        return false;
       };
-      idx += 1;
+
+      i += 1;
     };
-    // The array starts with the prefix.
+
     return true;
   };
 

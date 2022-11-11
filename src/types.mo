@@ -18,8 +18,8 @@ module {
   public type Memory = {
     size: () -> Nat64;
     grow: (Nat64) -> Int64;
-    store: (Nat64, [Nat8]) -> ();
-    load: (Nat64, Nat) -> [Nat8];
+    write: (Nat64, [Nat8]) -> ();
+    read: (Nat64, Nat) -> [Nat8];
   };
 
   /// An indicator of the current position in the map.

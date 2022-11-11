@@ -880,7 +880,7 @@ module {
         };
 
         // If the prefix is found in the node, then add a cursor starting from its index.
-        if (idx < node.getEntries().size() and Utils.startsWith(node.getEntry(idx).0, prefix, Nat8.compare)){
+        if (idx < node.getEntries().size() and Utils.isPrefixOf(prefix, node.getEntry(idx).0, Nat8.equal)){
           cursors.add(#Node {
             node;
             next = #Entry(Nat64.fromNat(idx));

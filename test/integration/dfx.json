@@ -2,9 +2,13 @@
   "version": 1,
   "dfx": "0.11.2",
   "canisters": {
-    "test": {
+    "singleBTree": {
       "type": "motoko",
-      "main": "src/main.mo"
+      "main": "src/singleBTree.mo"
+    },
+    "multipleBTrees": {
+      "type": "motoko",
+      "main": "src/multipleBTrees.mo"
     }
   },
   "defaults": {

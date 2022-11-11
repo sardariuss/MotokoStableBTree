@@ -43,7 +43,7 @@ module {
       };
     };
     // Store the bytes in memory.
-    memory.store(address, bytes);
+    memory.write(address, bytes);
     #ok();
   };
 
@@ -61,24 +61,24 @@ module {
 
   /// Reads the bytes at the specified address, traps if exceeds memory size.
   public func read(memory: Memory, address: Nat64, size: Nat) : [Nat8] {
-    memory.load(address, size);
+    memory.read(address, size);
   };
 
-  public let STABLE_MEMORY = {
-    size = func() : Nat64 { 
+  public let STABLE_MEMORY = object {
+    public func size() : Nat64 { 
       StableMemory.size(); 
     };
-    grow = func(pages: Nat64) : Int64 {
+    public func grow(pages: Nat64) : Int64 {
       let old_size = StableMemory.grow(pages);
       if (old_size == 0xFFFF_FFFF_FFFF_FFFF){
         return -1;
       };
       Int64.fromNat64(old_size);
     };
-    store = func(address: Nat64, bytes: [Nat8]) {
+    public func write(address: Nat64, bytes: [Nat8]) {
       StableMemory.storeBlob(address, Blob.fromArray(bytes));
     };
-    load = func(address: Nat64, size: Nat) : [Nat8] {
+    public func read(address: Nat64, size: Nat) : [Nat8] {
       Blob.toArray(StableMemory.loadBlob(address, size));
     };
   };
@@ -108,7 +108,7 @@ module {
       return Int64.fromIntWrap(Nat64.toNat(size));
     };
 
-    public func load(address: Nat64, size: Nat) : [Nat8] {
+    public func read(address: Nat64, size: Nat) : [Nat8] {
       // Traps on overflow.
       let offset = Nat64.toNat(address) + size;
       // Cannot read pass the memory buffer size.
@@ -123,7 +123,7 @@ module {
       bytes.toArray();
     };
 
-    public func store(address: Nat64, bytes: [Nat8]) {
+    public func write(address: Nat64, bytes: [Nat8]) {
       let offset = Nat64.toNat(address) + bytes.size();
       // Check that the bytes fit into the buffer.
       if (offset > buffer_.size()){

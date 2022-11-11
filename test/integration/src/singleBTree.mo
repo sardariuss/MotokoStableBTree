@@ -8,7 +8,7 @@ import Array "mo:base/Array";
 import Buffer "mo:base/Buffer";
 import Iter "mo:base/Iter";
 
-actor class Test(args: {
+actor class SingleBTree(args: {
   max_key_size: Nat32;
   max_value_size: Nat32;
 }) {
