@@ -27,7 +27,6 @@ module {
   // For convenience: from matchers module
   let { run;test;suite; } = Suite;
   // For convenience: from types module
-  type InsertError = Types.InsertError;
   type NodeType = Types.NodeType;
   type Entry = Types.Entry;
 
@@ -162,27 +161,6 @@ module {
     testOptItem<[Nat8]>(item, bytesToText, bytesEqual);
   };
 
-  func insertErrorToText(error: InsertError) : Text {
-    switch(error){
-      case(#KeyTooLarge({given; max;})){
-        "Key too large. Given is '" # Nat.toText(given) # "' while max is '" # Nat.toText(max) # "'";
-      };
-      case(#ValueTooLarge({given; max;})){
-        "Value too large. Given is '" # Nat.toText(given) # "' while max is '" # Nat.toText(max) # "'";
-      };
-    };
-  };
-
-  func insertErrorEqual(error1: InsertError, error2: InsertError) : Bool {
-    error1 == error2;
-  };
-
-  type InsertResult = Result<?[Nat8], InsertError>;
-
-  func testInsertResult(result: InsertResult) : Testable.TestableItem<InsertResult> {
-    testResult<?[Nat8], InsertError>(result, optBytesToText, insertErrorToText, optBytesEqual, insertErrorEqual);
-  };
-
   func testNodeType(node_type: NodeType) : Testable.TestableItem<NodeType> {
     {
       display = func(node_type: NodeType) : Text {
@@ -312,10 +290,6 @@ module {
 
     public func equalsOptBytes(actual: ?[Nat8], expected: ?[Nat8]){
       equals<?[Nat8]>("equalsOptBytes", actual, testOptBytes(expected));
-    };
-
-    public func equalsInsertResult(actual: InsertResult, expected: InsertResult){
-      equals<InsertResult>("equalsInsertResult", actual, testInsertResult(expected));
     };
 
     public func equalsNodeType(actual: NodeType, expected: NodeType){

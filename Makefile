@@ -10,7 +10,6 @@ check-strict:
 
 test:
 	make -C test/module
-	make -C test/integration
 
 docs:
 	$(shell vessel bin)/mo-doc

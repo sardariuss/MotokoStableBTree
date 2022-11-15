@@ -1,5 +1,4 @@
 import Types "../../src/types";
-import Memory "../../src/memory";
 import BTreeMap "../../src/btreemap";
 import Node "../../src/node";
 import Utils "../../src/utils";
@@ -32,54 +31,37 @@ module {
     toBytes = func(bytes: [Nat8]) : [Nat8] { bytes; };
   };
 
-  func initPreservesData(test: TestBuffer) {
-    let mem = Memory.VecMemory();
-    var btree = BTreeMap.init<[Nat8], [Nat8]>(mem, 3, 4, bytes_passtrough, bytes_passtrough);
-    test.equalsInsertResult(btree.insert([1, 2, 3], [4, 5, 6]), #ok(null));
-    test.equalsOptBytes(btree.get([1, 2, 3]), ?([4, 5, 6]));
-
-    // Reload the btree
-    btree := BTreeMap.init<[Nat8], [Nat8]>(mem, 3, 4, bytes_passtrough, bytes_passtrough);
-
-    // Data still exists.
-    test.equalsOptBytes(btree.get([1, 2, 3]), ?([4, 5, 6]));
-  };
-
   func insertGet(test: TestBuffer) {
-    let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 3, 4, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
 
-    test.equalsInsertResult(btree.insert([1, 2, 3], [4, 5, 6]), #ok(null));
+    test.equalsOptBytes(btree.insert([1, 2, 3], [4, 5, 6]), null);
     test.equalsOptBytes(btree.get([1, 2, 3]), ?([4, 5, 6]));
   };
 
   func insertOverwritesPreviousValue(test: TestBuffer) {
-    let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
 
-    test.equalsInsertResult(btree.insert([1, 2, 3], [4, 5, 6]), #ok(null));
-    test.equalsInsertResult(btree.insert([1, 2, 3], [7, 8, 9]), #ok(?([4, 5, 6])));
+    test.equalsOptBytes(btree.insert([1, 2, 3], [4, 5, 6]), null);
+    test.equalsOptBytes(btree.insert([1, 2, 3], [7, 8, 9]), ?([4, 5, 6]));
     test.equalsOptBytes(btree.get([1, 2, 3]), ?([7, 8, 9]));
   };
 
   func insertGetMultiple(test: TestBuffer) {
-    let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
 
-    test.equalsInsertResult(btree.insert([1, 2, 3] , [4, 5, 6]), #ok(null));
-    test.equalsInsertResult(btree.insert([4, 5] , [7, 8, 9, 10]), #ok(null));
-    test.equalsInsertResult(btree.insert([], [11]), #ok(null));
+    test.equalsOptBytes(btree.insert([1, 2, 3] , [4, 5, 6]), null);
+    test.equalsOptBytes(btree.insert([4, 5] , [7, 8, 9, 10]), null);
+    test.equalsOptBytes(btree.insert([], [11]), null);
     test.equalsOptBytes(btree.get([1, 2, 3]), ?([4, 5, 6]));
     test.equalsOptBytes(btree.get([4, 5]), ?([7, 8, 9, 10]));
     test.equalsOptBytes(btree.get([]), ?([11]));
   };
 
   func insertOverwriteMedianKeyInFullChildNode(test: TestBuffer) {
-    let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
 
     for (i in Iter.range(1, 17)) {
-      test.equalsInsertResult(btree.insert([Nat8.fromNat(i)], []), #ok(null));
+      test.equalsOptBytes(btree.insert([Nat8.fromNat(i)], []), null);
     };
 
     // The result should look like this:
@@ -87,102 +69,70 @@ module {
     //         /   \
     // [1, 2, 3, 4, 5]   [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
 
-    let root = btree.loadNode(btree.getRootAddr());
+    let root = btree.getRootNode();
     test.equalsNodeType(root.getNodeType(), #Internal);
     test.equalsEntries(root.getEntries().toArray(), [Node.makeEntry([6], [])]);
     test.equalsNat(root.getChildren().size(), 2);
 
     // The right child should now be full, with the median key being "12"
-    var right_child = btree.loadNode(root.getChildren().get(1));
+    var right_child = root.getChildren().get(1);
     test.equalsBool(right_child.isFull(), true);
     let median_index = right_child.getEntries().size() / 2;
     test.equalsBytes(right_child.getEntries().get(median_index).0, [12]);
 
     // Overwrite the median key.
-    test.equalsInsertResult(btree.insert([12], [1, 2, 3]), #ok(?([])));
+    test.equalsOptBytes(btree.insert([12], [1, 2, 3]), ?([]));
 
     // The key is overwritten successfully.
     test.equalsOptBytes(btree.get([12]), ?([1, 2, 3]));
 
     // The child has not been split and is still full.
-    right_child := btree.loadNode(root.getChildren().get(1));
+    right_child := root.getChildren().get(1);
     test.equalsNodeType(right_child.getNodeType(), #Leaf);
     test.equalsBool(right_child.isFull(), true);
   };
 
   func insertOverwriteKeyInFullRootNode(test: TestBuffer) {
-    let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
 
     for (i in Iter.range(1, 11)) {
-      test.equalsInsertResult(btree.insert([Nat8.fromNat(i)], []), #ok(null));
+      test.equalsOptBytes(btree.insert([Nat8.fromNat(i)], []), null);
     };
 
     // We now have a root that is full and looks like this:
     //
     // [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
-    var root = btree.loadNode(btree.getRootAddr());
+    var root = btree.getRootNode();
     test.equalsBool(root.isFull(), true);
 
     // Overwrite an element in the root. It should NOT cause the node to be split.
-    test.equalsInsertResult(btree.insert([6], [4, 5, 6]), #ok(?([])));
+    test.equalsOptBytes(btree.insert([6], [4, 5, 6]), ?([]));
 
-    root := btree.loadNode(btree.getRootAddr());
+    root := btree.getRootNode();
     test.equalsNodeType(root.getNodeType(), #Leaf);
     test.equalsOptBytes(btree.get([6]), ?([4, 5, 6]));
     test.equalsNat(root.getEntries().size(), 11);
   };
 
-  func allocations(test: TestBuffer) {
-    let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
-
-    for (i in Iter.range(0, Nat64.toNat(Node.getCapacity() - 1))) {
-      test.equalsInsertResult(btree.insert([Nat8.fromNat(i)], []), #ok(null));
-    };
-
-    // Only need a single allocation to store up to `CAPACITY` elements.
-    test.equalsNat64(btree.getAllocator().getNumAllocatedChunks(), 1);
-
-    test.equalsInsertResult(btree.insert([255], []), #ok(null));
-
-    // The node had to be split into three nodes.
-    test.equalsNat64(btree.getAllocator().getNumAllocatedChunks(), 3);
-  };
-
-  func allocations2(test: TestBuffer) {
-    let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
-    test.equalsNat64(btree.getAllocator().getNumAllocatedChunks(), 0);
-
-    test.equalsInsertResult(btree.insert([], []), #ok(null));
-    test.equalsNat64(btree.getAllocator().getNumAllocatedChunks(), 1);
-
-    test.equalsOptBytes(btree.remove([]), ?([]));
-    test.equalsNat64(btree.getAllocator().getNumAllocatedChunks(), 0);
-  };
-
   func insertSameKeyMultiple(test: TestBuffer) {
-    let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
 
-    test.equalsInsertResult(btree.insert([1], [2]), #ok(null));
+    test.equalsOptBytes(btree.insert([1], [2]), null);
 
     for (i in Iter.range(2, 9)) {
-      test.equalsInsertResult(btree.insert([1], [Nat8.fromNat(i) + 1]), #ok(?([Nat8.fromNat(i)])));
+      test.equalsOptBytes(btree.insert([1], [Nat8.fromNat(i) + 1]), ?([Nat8.fromNat(i)]));
     };
   };
 
   func insertSplitNode(test: TestBuffer) {
-    let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
 
     for (i in Iter.range(1, 11)) {
-      test.equalsInsertResult(btree.insert([Nat8.fromNat(i)], []), #ok(null));
+      test.equalsOptBytes(btree.insert([Nat8.fromNat(i)], []), null);
     };
 
     // Should now split a node.
-    test.equalsInsertResult(btree.insert([12], []), #ok(null));
+    test.equalsOptBytes(btree.insert([12], []), null);
 
     // The result should look like this:
     //        [6]
@@ -195,8 +145,7 @@ module {
   };
 
   func overwriteTest(test: TestBuffer) {
-    let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
 
     let num_elements = 255;
 
@@ -206,39 +155,38 @@ module {
     assert(Nat64.fromNat(num_elements) > 10 * Node.getCapacity());
 
     for (i in Iter.range(0, num_elements - 1)) {
-      test.equalsInsertResult(btree.insert([Nat8.fromNat(i)], []), #ok(null));
+      test.equalsOptBytes(btree.insert([Nat8.fromNat(i)], []), null);
     };
 
     // Overwrite the values.
     for (i in Iter.range(0, num_elements - 1)) {
       // Assert we retrieved the old value correctly.
-      test.equalsInsertResult(btree.insert([Nat8.fromNat(i)], [1, 2, 3]), #ok(?([])));
+      test.equalsOptBytes(btree.insert([Nat8.fromNat(i)], [1, 2, 3]), ?([]));
       // Assert we retrieved the new value correctly.
       test.equalsOptBytes(btree.get([Nat8.fromNat(i)]), ?([1, 2, 3]));
     };
   };
 
   func insertSplitMultipleNodes(test: TestBuffer) {
-    let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
 
     for (i in Iter.range(1, 11)) {
-      test.equalsInsertResult(btree.insert([Nat8.fromNat(i)], []), #ok(null));
+      test.equalsOptBytes(btree.insert([Nat8.fromNat(i)], []), null);
     };
     // Should now split a node.
-    test.equalsInsertResult(btree.insert([12], []), #ok(null));
+    test.equalsOptBytes(btree.insert([12], []), null);
 
     // The result should look like this:
     //        [6]
     //         /   \
     // [1, 2, 3, 4, 5]   [7, 8, 9, 10, 11, 12]
 
-    var root = btree.loadNode(btree.getRootAddr());
+    var root = btree.getRootNode();
     test.equalsNodeType(root.getNodeType(), #Internal);
     test.equalsEntries(root.getEntries().toArray(), [([6], [])]);
     test.equalsNat(root.getChildren().size(), 2);
 
-    var child_0 = btree.loadNode(root.getChildren().get(0));
+    var child_0 = root.getChildren().get(0);
     test.equalsNodeType(child_0.getNodeType(), #Leaf);
     test.equalsEntries(
       child_0.getEntries().toArray(),
@@ -251,7 +199,7 @@ module {
       ]
     );
 
-    var child_1 = btree.loadNode(root.getChildren().get(1));
+    var child_1 = root.getChildren().get(1);
     test.equalsNodeType(child_1.getNodeType(), #Leaf);
     test.equalsEntries(
       child_1.getEntries().toArray(),
@@ -270,24 +218,24 @@ module {
     };
 
     // Insert more to cause more splitting.
-    test.equalsInsertResult(btree.insert([13], []), #ok(null));
-    test.equalsInsertResult(btree.insert([14], []), #ok(null));
-    test.equalsInsertResult(btree.insert([15], []), #ok(null));
-    test.equalsInsertResult(btree.insert([16], []), #ok(null));
-    test.equalsInsertResult(btree.insert([17], []), #ok(null));
+    test.equalsOptBytes(btree.insert([13], []), null);
+    test.equalsOptBytes(btree.insert([14], []), null);
+    test.equalsOptBytes(btree.insert([15], []), null);
+    test.equalsOptBytes(btree.insert([16], []), null);
+    test.equalsOptBytes(btree.insert([17], []), null);
     // Should cause another split
-    test.equalsInsertResult(btree.insert([18], []), #ok(null));
+    test.equalsOptBytes(btree.insert([18], []), null);
 
     for (i in Iter.range(1, 18)) {
       test.equalsOptBytes(btree.get([Nat8.fromNat(i)]), ?([]));
     };
 
-    root := btree.loadNode(btree.getRootAddr());
+    root := btree.getRootNode();
     test.equalsNodeType(root.getNodeType(), #Internal);
     test.equalsEntries(root.getEntries().toArray(), [([6], []), ([12], [])]);
     test.equalsNat(root.getChildren().size(), 3);
 
-    child_0 := btree.loadNode(root.getChildren().get(0));
+    child_0 := root.getChildren().get(0);
     test.equalsNodeType(child_0.getNodeType(), #Leaf);
     test.equalsEntries(
       child_0.getEntries().toArray(),
@@ -300,7 +248,7 @@ module {
       ]
     );
 
-    child_1 := btree.loadNode(root.getChildren().get(1));
+    child_1 := root.getChildren().get(1);
     test.equalsNodeType(child_1.getNodeType(), #Leaf);
     test.equalsEntries(
       child_1.getEntries().toArray(),
@@ -313,7 +261,7 @@ module {
       ]
     );
 
-    let child_2 = btree.loadNode(root.getChildren().get(2));
+    let child_2 = root.getChildren().get(2);
     test.equalsNodeType(child_2.getNodeType(), #Leaf);
     test.equalsEntries(
       child_2.getEntries().toArray(),
@@ -329,24 +277,22 @@ module {
   };
 
   func removeSimple(test: TestBuffer) {
-    let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
 
-    test.equalsInsertResult(btree.insert([1, 2, 3], [4, 5, 6]), #ok(null));
+    test.equalsOptBytes(btree.insert([1, 2, 3], [4, 5, 6]), null);
     test.equalsOptBytes(btree.get([1, 2, 3]), ?([4, 5, 6]));
     test.equalsOptBytes(btree.remove([1, 2, 3]), ?([4, 5, 6]));
     test.equalsOptBytes(btree.get([1, 2, 3]), null);
   };
 
   func removeCase2aAnd2c(test: TestBuffer) {
-    let mem = Memory.VecMemory();
-    var btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    var btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
 
     for (i in Iter.range(1, 11)) {
-      test.equalsInsertResult(btree.insert([Nat8.fromNat(i)], []), #ok(null));
+      test.equalsOptBytes(btree.insert([Nat8.fromNat(i)], []), null);
     };
     // Should now split a node.
-    test.equalsInsertResult(btree.insert([0], []), #ok(null));
+    test.equalsOptBytes(btree.insert([0], []), null);
 
     // The result should look like this:
     //          [6]
@@ -364,49 +310,40 @@ module {
     //        [5]
     //         /   \
     // [0, 1, 2, 3, 4]   [7, 8, 9, 10, 11]
-    var root = btree.loadNode(btree.getRootAddr());
+    var root = btree.getRootNode();
     test.equalsNodeType(root.getNodeType(), #Internal);
     test.equalsEntries(root.getEntries().toArray(), [e(5)]);
     test.equalsNat(root.getChildren().size(), 2);
 
-    let child_0 = btree.loadNode(root.getChildren().get(0));
+    let child_0 = root.getChildren().get(0);
     test.equalsNodeType(child_0.getNodeType(), #Leaf);
     test.equalsEntries(child_0.getEntries().toArray(), [e(0), e(1), e(2), e(3), e(4)]);
 
-    let child_1 = btree.loadNode(root.getChildren().get(1));
+    let child_1 = root.getChildren().get(1);
     test.equalsNodeType(child_1.getNodeType(), #Leaf);
     test.equalsEntries(child_1.getEntries().toArray(), [e(7), e(8), e(9), e(10), e(11)]);
-
-    // There are three allocated nodes.
-    test.equalsNat64(btree.getAllocator().getNumAllocatedChunks(), 3);
 
     // Remove node 5. Triggers case 2c
     test.equalsOptBytes(btree.remove([5]), ?([]));
 
-    // Reload the btree to verify that we saved it correctly.
-    btree := BTreeMap.load(mem, bytes_passtrough, bytes_passtrough);
-
     // The result should look like this:
     // [0, 1, 2, 3, 4, 7, 8, 9, 10, 11]
-    root := btree.loadNode(btree.getRootAddr());
+    root := btree.getRootNode();
     test.equalsEntries(
       root.getEntries().toArray(),
       [e(0), e(1), e(2), e(3), e(4), e(7), e(8), e(9), e(10), e(11)]
     );
 
-    // There is only one node allocated.
-    test.equalsNat64(btree.getAllocator().getNumAllocatedChunks(), 1);
   };
 
   func removeCase2b(test: TestBuffer) {
-    let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
 
     for (i in Iter.range(1, 11)) {
-      test.equalsInsertResult(btree.insert([Nat8.fromNat(i)], []), #ok(null));
+      test.equalsOptBytes(btree.insert([Nat8.fromNat(i)], []), null);
     };
     // Should now split a node.
-    test.equalsInsertResult(btree.insert([12], []), #ok(null));
+    test.equalsOptBytes(btree.insert([12], []), null);
 
     // The result should look like this:
     //        [6]
@@ -424,16 +361,16 @@ module {
     //        [7]
     //         /   \
     // [1, 2, 3, 4, 5]   [8, 9, 10, 11, 12]
-    var root = btree.loadNode(btree.getRootAddr());
+    var root = btree.getRootNode();
     test.equalsNodeType(root.getNodeType(), #Internal);
     test.equalsEntries(root.getEntries().toArray(), [e(7)]);
     test.equalsNat(root.getChildren().size(), 2);
 
-    let child_0 = btree.loadNode(root.getChildren().get(0));
+    let child_0 = root.getChildren().get(0);
     test.equalsNodeType(child_0.getNodeType(), #Leaf);
     test.equalsEntries(child_0.getEntries().toArray(), [e(1), e(2), e(3), e(4), e(5)]);
 
-    let child_1 = btree.loadNode(root.getChildren().get(1));
+    let child_1 = root.getChildren().get(1);
     test.equalsNodeType(child_1.getNodeType(), #Leaf);
     test.equalsEntries(child_1.getEntries().toArray(), [e(8), e(9), e(10), e(11), e(12)]);
 
@@ -442,7 +379,7 @@ module {
     // The result should look like this:
     //
     // [1, 2, 3, 4, 5, 8, 9, 10, 11, 12]
-    root := btree.loadNode(btree.getRootAddr());
+    root := btree.getRootNode();
     test.equalsNodeType(root.getNodeType(), #Leaf);
     test.equalsEntries(
       root.getEntries().toArray(),
@@ -462,15 +399,14 @@ module {
   };
 
   func removeCase3aRight(test: TestBuffer) {
-    let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
 
     for (i in Iter.range(1, 11)) {
-      test.equalsInsertResult(btree.insert([Nat8.fromNat(i)], []), #ok(null));
+      test.equalsOptBytes(btree.insert([Nat8.fromNat(i)], []), null);
     };
 
     // Should now split a node.
-    test.equalsInsertResult(btree.insert([12], []), #ok(null));
+    test.equalsOptBytes(btree.insert([12], []), null);
 
     // The result should look like this:
     //        [6]
@@ -484,32 +420,28 @@ module {
     //        [7]
     //         /   \
     // [1, 2, 4, 5, 6]   [8, 9, 10, 11, 12]
-    let root = btree.loadNode(btree.getRootAddr());
+    let root = btree.getRootNode();
     test.equalsNodeType(root.getNodeType(), #Internal);
     test.equalsEntries(root.getEntries().toArray(), [([7], [])]);
     test.equalsNat(root.getChildren().size(), 2);
 
-    let child_0 = btree.loadNode(root.getChildren().get(0));
+    let child_0 = root.getChildren().get(0);
     test.equalsNodeType(child_0.getNodeType(), #Leaf);
     test.equalsEntries(child_0.getEntries().toArray(), [e(1), e(2), e(4), e(5), e(6)]);
 
-    let child_1 = btree.loadNode(root.getChildren().get(1));
+    let child_1 = root.getChildren().get(1);
     test.equalsNodeType(child_1.getNodeType(), #Leaf);
     test.equalsEntries(child_1.getEntries().toArray(), [e(8), e(9), e(10), e(11), e(12)]);
-
-    // There are three allocated nodes.
-    test.equalsNat64(btree.getAllocator().getNumAllocatedChunks(), 3);
   };
 
   func removeCase3aLeft(test: TestBuffer) {
-    let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
 
     for (i in Iter.range(1, 11)) {
-      test.equalsInsertResult(btree.insert([Nat8.fromNat(i)], []), #ok(null));
+      test.equalsOptBytes(btree.insert([Nat8.fromNat(i)], []), null);
     };
     // Should now split a node.
-    test.equalsInsertResult(btree.insert([0], []), #ok(null));
+    test.equalsOptBytes(btree.insert([0], []), null);
 
     // The result should look like this:
     //           [6]
@@ -523,32 +455,28 @@ module {
     //        [5]
     //         /   \
     // [0, 1, 2, 3, 4]   [6, 7, 9, 10, 11]
-    let root = btree.loadNode(btree.getRootAddr());
+    let root = btree.getRootNode();
     test.equalsNodeType(root.getNodeType(), #Internal);
     test.equalsEntries(root.getEntries().toArray(), [([5], [])]);
     test.equalsNat(root.getChildren().size(), 2);
 
-    let child_0 = btree.loadNode(root.getChildren().get(0));
+    let child_0 = root.getChildren().get(0);
     test.equalsNodeType(child_0.getNodeType(), #Leaf);
     test.equalsEntries(child_0.getEntries().toArray(), [e(0), e(1), e(2), e(3), e(4)]);
 
-    let child_1 = btree.loadNode(root.getChildren().get(1));
+    let child_1 = root.getChildren().get(1);
     test.equalsNodeType(child_1.getNodeType(), #Leaf);
     test.equalsEntries(child_1.getEntries().toArray(), [e(6), e(7), e(9), e(10), e(11)]);
-
-    // There are three allocated nodes.
-    test.equalsNat64(btree.getAllocator().getNumAllocatedChunks(), 3);
   };
 
   func removeCase3bMergeIntoRight(test: TestBuffer) {
-    let mem = Memory.VecMemory();
-    var btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    var btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
 
     for (i in Iter.range(1, 11)) {
-      test.equalsInsertResult(btree.insert([Nat8.fromNat(i)], []), #ok(null));
+      test.equalsOptBytes(btree.insert([Nat8.fromNat(i)], []), null);
     };
     // Should now split a node.
-    test.equalsInsertResult(btree.insert([12], []), #ok(null));
+    test.equalsOptBytes(btree.insert([12], []), null);
 
     // The result should look like this:
     //        [6]
@@ -565,32 +493,26 @@ module {
     //        [7]
     //         /   \
     // [1, 2, 3, 4, 5]   [8, 9, 10, 11, 12]
-    var root = btree.loadNode(btree.getRootAddr());
+    var root = btree.getRootNode();
     test.equalsNodeType(root.getNodeType(), #Internal);
     test.equalsEntries(root.getEntries().toArray(), [([7], [])]);
     test.equalsNat(root.getChildren().size(), 2);
 
-    let child_0 = btree.loadNode(root.getChildren().get(0));
+    let child_0 = root.getChildren().get(0);
     test.equalsNodeType(child_0.getNodeType(), #Leaf);
     test.equalsEntries(child_0.getEntries().toArray(), [e(1), e(2), e(3), e(4), e(5)]);
 
-    let child_1 = btree.loadNode(root.getChildren().get(1));
+    let child_1 = root.getChildren().get(1);
     test.equalsNodeType(child_1.getNodeType(), #Leaf);
     test.equalsEntries(child_1.getEntries().toArray(), [e(8), e(9), e(10), e(11), e(12)]);
-
-    // There are three allocated nodes.
-    test.equalsNat64(btree.getAllocator().getNumAllocatedChunks(), 3);
 
     // Remove node 3. Triggers case 3.b
     test.equalsOptBytes(btree.remove([3]), ?([]));
 
-    // Reload the btree to verify that we saved it correctly.
-    btree := BTreeMap.load(mem, bytes_passtrough, bytes_passtrough);
-
     // The result should look like this:
     //
     // [1, 2, 4, 5, 7, 8, 9, 10, 11, 12]
-    root := btree.loadNode(btree.getRootAddr());
+    root := btree.getRootNode();
     test.equalsNodeType(root.getNodeType(), #Leaf);
     test.equalsEntries(
       root.getEntries().toArray(),
@@ -607,21 +529,17 @@ module {
         e(12)
       ]
     );
-
-    // There is only one allocated node remaining.
-    test.equalsNat64(btree.getAllocator().getNumAllocatedChunks(), 1);
   };
 
   func removeCase3bMergeIntoLeft(test: TestBuffer) {
-    let mem = Memory.VecMemory();
-    var btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    var btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
 
     for (i in Iter.range(1, 11)) {
-      test.equalsInsertResult(btree.insert([Nat8.fromNat(i)], []), #ok(null));
+      test.equalsOptBytes(btree.insert([Nat8.fromNat(i)], []), null);
     };
 
     // Should now split a node.
-    test.equalsInsertResult(btree.insert([12], []), #ok(null));
+    test.equalsOptBytes(btree.insert([12], []), null);
 
     // The result should look like this:
     //        [6]
@@ -639,50 +557,40 @@ module {
     //        [7]
     //         /   \
     // [1, 2, 3, 4, 5]   [8, 9, 10, 11, 12]
-    var root = btree.loadNode(btree.getRootAddr());
+    var root = btree.getRootNode();
     test.equalsNodeType(root.getNodeType(), #Internal);
     test.equalsEntries(root.getEntries().toArray(), [([7], [])]);
     test.equalsNat(root.getChildren().size(), 2);
 
-    let child_0 = btree.loadNode(root.getChildren().get(0));
+    let child_0 = root.getChildren().get(0);
     test.equalsNodeType(child_0.getNodeType(), #Leaf);
     test.equalsEntries(child_0.getEntries().toArray(), [e(1), e(2), e(3), e(4), e(5)]);
 
-    let child_1 = btree.loadNode(root.getChildren().get(1));
+    let child_1 = root.getChildren().get(1);
     test.equalsNodeType(child_1.getNodeType(), #Leaf);
     test.equalsEntries(child_1.getEntries().toArray(), [e(8), e(9), e(10), e(11), e(12)]);
-
-    // There are three allocated nodes.
-    test.equalsNat64(btree.getAllocator().getNumAllocatedChunks(), 3);
 
     // Remove node 10. Triggers case 3.b where we merge the right into the left.
     test.equalsOptBytes(btree.remove([10]), ?([]));
 
-    // Reload the btree to verify that we saved it correctly.
-    btree := BTreeMap.load(mem, bytes_passtrough, bytes_passtrough);
-
     // The result should look like this:
     //
     // [1, 2, 3, 4, 5, 7, 8, 9, 11, 12]
-    root := btree.loadNode(btree.getRootAddr());
+    root := btree.getRootNode();
     test.equalsNodeType(root.getNodeType(), #Leaf);
     test.equalsEntries(
       root.getEntries().toArray(),
       [e(1), e(2), e(3), e(4), e(5), e(7), e(8), e(9), e(11), e(12)]
     );
-
-    // There is only one allocated node remaining.
-    test.equalsNat64(btree.getAllocator().getNumAllocatedChunks(), 1);
   };
 
   func manyInsertions(test: TestBuffer) {
-    let mem = Memory.VecMemory();
-    var btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    var btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
 
     for (j in Iter.range(0, 10)) {
       for (i in Iter.range(0, 255)) {
         let bytes = [Nat8.fromNat(i), Nat8.fromNat(j)];
-        test.equalsInsertResult(btree.insert(bytes, bytes), #ok(null));
+        test.equalsOptBytes(btree.insert(bytes, bytes), null);
       };
     };
 
@@ -692,8 +600,6 @@ module {
         test.equalsOptBytes(btree.get(bytes), ?(bytes));
       };
     };
-
-    btree := BTreeMap.load(mem, bytes_passtrough, bytes_passtrough);
 
     for (j in Iter.range(0, 10)) {
       for (i in Iter.range(0, 255)) {
@@ -708,19 +614,15 @@ module {
         test.equalsOptBytes(btree.get(bytes), null);
       };
     };
-
-    // We've deallocated everything.
-    test.equalsNat64(btree.getAllocator().getNumAllocatedChunks(), 0);
   };
 
   func manyInsertions2(test: TestBuffer) {
-    let mem = Memory.VecMemory();
-    var btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    var btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
 
     for (j in Iter.revRange(10, 0)) {
       for (i in Iter.revRange(255, 0)) {
         let bytes = [Nat8.fromNat(Int.abs(i)), Nat8.fromNat(Int.abs(j))];
-        test.equalsInsertResult(btree.insert(bytes, bytes), #ok(null));
+        test.equalsOptBytes(btree.insert(bytes, bytes), null);
       };
     };
 
@@ -730,8 +632,6 @@ module {
         test.equalsOptBytes(btree.get(bytes), ?(bytes));
       };
     };
-
-    btree := BTreeMap.load(mem, bytes_passtrough, bytes_passtrough);
 
     for (j in Iter.revRange(10, 0)) {
       for (i in Iter.revRange((255, 0))) {
@@ -746,50 +646,13 @@ module {
         test.equalsOptBytes(btree.get(bytes), null);
       };
     };
-
-    // We've deallocated everything.
-    test.equalsNat64(btree.getAllocator().getNumAllocatedChunks(), 0);
-  };
-
-  func reloading(test: TestBuffer) {
-    let mem = Memory.VecMemory();
-    var btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
-
-    // The btree is initially empty.
-    test.equalsNat64(btree.getLength(), 0);
-    test.equalsBool(btree.isEmpty(), true);
-
-    // Add an entry into the btree.
-    test.equalsInsertResult(btree.insert([1, 2, 3], [4, 5, 6]) , #ok(null));
-    test.equalsNat64(btree.getLength(), 1);
-    test.equalsBool(btree.isEmpty(), false);
-
-    // Reload the btree. The element should still be there, and `len()`
-    // should still be `1`.
-    btree := BTreeMap.load(mem, bytes_passtrough, bytes_passtrough);
-    test.equalsOptBytes(btree.get([1, 2, 3]), ?([4, 5, 6]));
-    test.equalsNat64(btree.getLength(), 1);
-    test.equalsBool(btree.isEmpty(), false);
-
-    // Remove an element. Length should be zero.
-    btree := BTreeMap.load(mem, bytes_passtrough, bytes_passtrough);
-    test.equalsOptBytes(btree.remove([1, 2, 3]), ?([4, 5, 6]));
-    test.equalsNat64(btree.getLength(), 0);
-    test.equalsBool(btree.isEmpty(), true);
-
-    // Reload. Btree should still be empty.
-    btree := BTreeMap.load(mem, bytes_passtrough, bytes_passtrough);
-    test.equalsOptBytes(btree.get([1, 2, 3]), null);
-    test.equalsNat64(btree.getLength(), 0);
-    test.equalsBool(btree.isEmpty(), true);
   };
 
   func len(test: TestBuffer) {
-    let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
 
     for (i in Iter.range(0, 999)) {
-      test.equalsInsertResult(btree.insert(Conversion.nat32ToBytes(Nat32.fromNat(i)), []) , #ok(null));
+      test.equalsOptBytes(btree.insert(Conversion.nat32ToBytes(Nat32.fromNat(i)), []) , null);
     };
 
     test.equalsNat64(btree.getLength(), 1000);
@@ -804,12 +667,11 @@ module {
   };
 
   func containsKey(test: TestBuffer) {
-    let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
 
     // Insert even numbers from 0 to 1000.
     for (i in Iter.range(0, 499)) {
-      test.equalsInsertResult(btree.insert(Conversion.nat32ToBytes(Nat32.fromNat(i * 2)), []), #ok(null));
+      test.equalsOptBytes(btree.insert(Conversion.nat32ToBytes(Nat32.fromNat(i * 2)), []), null);
     };
 
     // Contains key should return true on all the even numbers and false on all the odd
@@ -820,8 +682,7 @@ module {
   };
 
   func rangeEmpty(test: TestBuffer) {
-    let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
 
     // Test prefixes that don't exist in the map.
     test.equalsEntries(Iter.toArray(btree.range([0], null)), []);
@@ -830,8 +691,7 @@ module {
 
   // Tests the case where the prefix is larger than all the entries in a leaf node.
   func rangeLeafPrefixGreaterThanAllEntries(test: TestBuffer) {
-    let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
 
     ignore btree.insert([0], []);
 
@@ -841,11 +701,10 @@ module {
 
   // Tests the case where the prefix is larger than all the entries in an internal node.
   func rangeInternalPrefixGreaterThanAllEntries(test: TestBuffer) {
-    let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
 
     for (i in Iter.range(1, 12)) {
-      test.equalsInsertResult(btree.insert([Nat8.fromNat(i)], []), #ok(null));
+      test.equalsOptBytes(btree.insert([Nat8.fromNat(i)], []), null);
     };
 
     // The result should look like this:
@@ -861,8 +720,7 @@ module {
   };
 
   func rangeVariousPrefixes(test: TestBuffer) {
-    let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
 
     ignore btree.insert([0, 1], []);
     ignore btree.insert([0, 2], []);
@@ -882,7 +740,7 @@ module {
     //                     /   \
     // [(0, 1), (0, 2), (0, 3), (0, 4), (1, 1)]     [(1, 3), (1, 4), (2, 1), (2, 2), (2, 3), (2, 4)]
 
-    let root = btree.loadNode(btree.getRootAddr());
+    let root = btree.getRootNode();
     test.equalsNodeType(root.getNodeType(), #Internal);
     test.equalsEntries(root.getEntries().toArray(), [([1, 2], [])]);
     test.equalsNat(root.getChildren().size(), 2);
@@ -922,8 +780,7 @@ module {
   };
 
   func rangeVariousPrefixes2(test: TestBuffer) {
-    let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
 
     ignore btree.insert([0, 1], []);
     ignore btree.insert([0, 2], []);
@@ -950,7 +807,7 @@ module {
     // [(0, 1), (0, 2), (0, 3), (0, 4), (1, 2)]     |    [(2, 4), (2, 5), (2, 6), (2, 7), (2, 8), (2, 9)]
     //                        |
     //               [(1, 6), (1, 8), (1, 10), (2, 1), (2, 2)]
-    let root = btree.loadNode(btree.getRootAddr());
+    let root = btree.getRootNode();
     test.equalsNodeType(root.getNodeType(), #Internal);
     test.equalsEntries(
       root.getEntries().toArray(),
@@ -958,7 +815,7 @@ module {
     );
     test.equalsNat(root.getChildren().size(), 3);
 
-    let child_0 = btree.loadNode(root.getChildren().get(0));
+    let child_0 = root.getChildren().get(0);
     test.equalsNodeType(child_0.getNodeType(), #Leaf);
     test.equalsEntries(
       child_0.getEntries().toArray(),
@@ -971,7 +828,7 @@ module {
       ]
     );
 
-    let child_1 = btree.loadNode(root.getChildren().get(1));
+    let child_1 = root.getChildren().get(1);
     test.equalsNodeType(child_1.getNodeType(), #Leaf);
     test.equalsEntries(
       child_1.getEntries().toArray(),
@@ -984,7 +841,7 @@ module {
       ]
     );
 
-    let child_2 = btree.loadNode(root.getChildren().get(2));
+    let child_2 = root.getChildren().get(2);
     test.equalsEntries(
       child_2.getEntries().toArray(),
       [
@@ -1031,8 +888,7 @@ module {
   };
 
   func rangeLarge(test: TestBuffer) {
-    let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
 
     // Insert 1000 elements with prefix 0 and another 1000 elements with prefix 1.
     for (prefix in Iter.range(0, 1)) {
@@ -1042,7 +898,7 @@ module {
         // integers are sorted.
         // @todo: here it is supposed to be in big endian!
         let key = Utils.append([Nat8.fromNat(prefix)], Conversion.nat32ToBytes(Nat32.fromNat(i)));
-        test.equalsInsertResult(btree.insert(key, []), #ok(null));
+        test.equalsOptBytes(btree.insert(key, []), null);
       };
     };
 
@@ -1059,8 +915,7 @@ module {
   };
 
   func rangeVariousPrefixesWithOffset(test: TestBuffer) {
-    let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
 
     ignore btree.insert([0, 1], []);
     ignore btree.insert([0, 2], []);
@@ -1080,7 +935,7 @@ module {
     //                     /   \
     // [(0, 1), (0, 2), (0, 3), (0, 4), (1, 1)]     [(1, 3), (1, 4), (2, 1), (2, 2), (2, 3), (2, 4)]
 
-    let root = btree.loadNode(btree.getRootAddr());
+    let root = btree.getRootNode();
     test.equalsNodeType(root.getNodeType(), #Internal);
     test.equalsEntries(root.getEntries().toArray(), [([1, 2], [])]);
     test.equalsNat(root.getChildren().size(), 2);
@@ -1110,8 +965,7 @@ module {
   };
 
   func rangeVariousPrefixesWithOffset2(test: TestBuffer) {
-    let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
 
     ignore btree.insert([0, 1], []);
     ignore btree.insert([0, 2], []);
@@ -1138,7 +992,7 @@ module {
     // [(0, 1), (0, 2), (0, 3), (0, 4), (1, 2)]     |    [(2, 4), (2, 5), (2, 6), (2, 7), (2, 8), (2, 9)]
     //                        |
     //               [(1, 6), (1, 8), (1, 10), (2, 1), (2, 2)]
-    let root = btree.loadNode(btree.getRootAddr());
+    let root = btree.getRootNode();
     test.equalsNodeType(root.getNodeType(), #Internal);
     test.equalsEntries(
       root.getEntries().toArray(),
@@ -1146,7 +1000,7 @@ module {
     );
     test.equalsNat(root.getChildren().size(), 3);
 
-    let child_0 = btree.loadNode(root.getChildren().get(0));
+    let child_0 = root.getChildren().get(0);
     test.equalsNodeType(child_0.getNodeType(), #Leaf);
     test.equalsEntries(
       child_0.getEntries().toArray(),
@@ -1159,7 +1013,7 @@ module {
       ]
     );
 
-    let child_1 = btree.loadNode(root.getChildren().get(1));
+    let child_1 = root.getChildren().get(1);
     test.equalsNodeType(child_1.getNodeType(), #Leaf);
     test.equalsEntries(
       child_1.getEntries().toArray(),
@@ -1172,7 +1026,7 @@ module {
       ]
     );
 
-    let child_2 = btree.loadNode(root.getChildren().get(2));
+    let child_2 = root.getChildren().get(2);
     test.equalsEntries(
       child_2.getEntries().toArray(),
       [
@@ -1216,38 +1070,34 @@ module {
   public func run() {
     let test = TestableItems.TestBuffer();
 
-    initPreservesData(test);
-    insertGet(test);
-    insertOverwritesPreviousValue(test);
-    insertGetMultiple(test);
-    insertOverwriteMedianKeyInFullChildNode(test);
-    insertOverwriteKeyInFullRootNode(test);
-    allocations(test);
-    allocations2(test);
-    insertSameKeyMultiple(test);
-    insertSplitNode(test);
-    overwriteTest(test);
-    insertSplitMultipleNodes(test);
-    removeSimple(test);
-    removeCase2aAnd2c(test);
-    removeCase2b(test);
-    removeCase3aRight(test);
-    removeCase3aLeft(test);
+    //insertGet(test);
+    //insertOverwritesPreviousValue(test);
+    //insertGetMultiple(test);
+    //insertOverwriteMedianKeyInFullChildNode(test);
+    //insertOverwriteKeyInFullRootNode(test);
+    //insertSameKeyMultiple(test);
+    //insertSplitNode(test);
+    //overwriteTest(test);
+    //insertSplitMultipleNodes(test);
+    //removeSimple(test);
+    //removeCase2aAnd2c(test);
+    //removeCase2b(test);
+    //removeCase3aRight(test);
+    //removeCase3aLeft(test);
     removeCase3bMergeIntoRight(test);
-    removeCase3bMergeIntoLeft(test);
-    manyInsertions(test);
-    manyInsertions2(test);
-    reloading(test);
-    len(test);
-    containsKey(test);
-    rangeEmpty(test);
-    rangeLeafPrefixGreaterThanAllEntries(test);
-    rangeInternalPrefixGreaterThanAllEntries(test);
-    rangeVariousPrefixes(test);
-    rangeVariousPrefixes2(test);
-    rangeLarge(test);
-    rangeVariousPrefixesWithOffset(test);
-    rangeVariousPrefixesWithOffset2(test);
+    //removeCase3bMergeIntoLeft(test);
+    //manyInsertions(test);
+    //manyInsertions2(test);
+    //len(test);
+    //containsKey(test);
+    //rangeEmpty(test);
+    //rangeLeafPrefixGreaterThanAllEntries(test);
+    //rangeInternalPrefixGreaterThanAllEntries(test);
+    //rangeVariousPrefixes(test);
+    //rangeVariousPrefixes2(test);
+    //rangeLarge(test);
+    //rangeVariousPrefixesWithOffset(test);
+    //rangeVariousPrefixesWithOffset2(test);
 
     test.run("Test btreemap module");
   };

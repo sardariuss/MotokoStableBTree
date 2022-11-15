@@ -1,19 +1,12 @@
 import Types "types";
-import Allocator "allocator";
 import Conversion "conversion";
 import Node "node";
 import Constants "constants";
 import Iter "iter";
 import Utils "utils";
-import Memory "memory";
 
-import Result "mo:base/Result";
 import Option "mo:base/Option";
-import Blob "mo:base/Blob";
-import Text "mo:base/Text";
-import Nat32 "mo:base/Nat32";
 import Debug "mo:base/Debug";
-import Array "mo:base/Array";
 import Nat64 "mo:base/Nat64";
 import Order "mo:base/Order";
 import Buffer "mo:base/Buffer";
@@ -21,13 +14,8 @@ import Nat8 "mo:base/Nat8";
 
 module {
 
-  // For convenience: from base module
-  type Result<Ok, Err> = Result.Result<Ok, Err>;
   // For convenience: from types module
-  type Address = Types.Address;
-  type Memory = Types.Memory;
   type BytesConverter<T> = Types.BytesConverter<T>;
-  type InsertError = Types.InsertError;
   type NodeType = Types.NodeType;
   type Entry = Types.Entry;
   type Cursor = Types.Cursor;
@@ -35,256 +23,74 @@ module {
   type Node = Node.Node;
   // For convenience: from iter module
   type Iter<K, V> = Iter.Iter<K, V>;
-  // For convenience: from allocator module
-  type Allocator = Allocator.Allocator;
 
-  let LAYOUT_VERSION : Nat8 = 1;
-  let MAGIC = "BTR";
-
-  /// Initializes a `BTreeMap`.
-  ///
-  /// If the memory provided already contains a `BTreeMap`, then that
-  /// map is loaded. Otherwise, a new `BTreeMap` instance is created.
-  public func init<K, V>(
-    memory : Memory,
-    max_key_size : Nat32,
-    max_value_size : Nat32,
-    key_converter: BytesConverter<K>,
-    value_converter: BytesConverter<V>
-  ) : BTreeMap<K, V> {
-    if (memory.size() == 0) {
-      // Memory is empty. Create a new map.
-      return new(memory, max_key_size, max_value_size, key_converter, value_converter);
-    };
-
-    // Check if the magic in the memory corresponds to a BTreeMap.
-    let dst = Memory.read(memory, 0, 3);
-    if (dst != Blob.toArray(Text.encodeUtf8(MAGIC))) {
-      // No BTreeMap found. Create a new instance.
-      return new(memory, max_key_size, max_value_size, key_converter, value_converter);
-    };
-    
-    // The memory already contains a BTreeMap. Load it.
-    return load(memory, key_converter, value_converter);
-  };
-
-  /// Creates a new instance a `BTreeMap`.
-  ///
-  /// The given `memory` is assumed to be exclusively reserved for this data
-  /// structure and that it starts at address zero. Typically `memory` will
-  /// be an instance of `RestrictedMemory`.
-  ///
-  /// When initialized, the data structure has the following memory layout:
-  ///
-  ///    |  BTreeHeader  |  Allocator | ... free memory for nodes |
-  ///
-  /// See `Allocator` for more details on its own memory layout.
-  public func new<K, V>(    
-    memory : Memory,
-    max_key_size : Nat32,
-    max_value_size : Nat32,
-    key_converter: BytesConverter<K>,
-    value_converter: BytesConverter<V>
-  ) : BTreeMap<K, V> {
-    // Because we assume that we have exclusive access to the memory,
-    // we can store the `BTreeHeader` at address zero, and the allocator is
-    // stored directly after the `BTreeHeader`.
-    let allocator_addr = Constants.ADDRESS_0 + B_TREE_HEADER_SIZE;
-    let btree = BTreeMap({
-      root_addr = Constants.NULL;
-      max_key_size = max_key_size;
-      max_value_size = max_value_size;
-      key_converter = key_converter;
-      value_converter = value_converter;
-      allocator = Allocator.initAllocator(memory, allocator_addr, Node.size(max_key_size, max_value_size));
-      length : Nat64 = 0;
-      memory = memory;
-    });
-
-    btree.save();
-
-    btree;
-  };
-
-  /// Loads the map from memory.
-  public func load<K, V>(
-    memory : Memory,
-    key_converter: BytesConverter<K>,
-    value_converter: BytesConverter<V>
-  ) : BTreeMap<K, V> {
-    // Read the header from memory.
-    let header = loadBTreeHeader(Constants.NULL, memory);
-    let allocator_addr = Constants.ADDRESS_0 + B_TREE_HEADER_SIZE;
-
-    BTreeMap({
-      root_addr = header.root_addr;
-      max_key_size = header.max_key_size;
-      max_value_size = header.max_value_size;
-      key_converter = key_converter;
-      value_converter = value_converter;
-      allocator = Allocator.loadAllocator(memory, allocator_addr);
-      length = header.length;
-      memory = memory;
-    });
-  };
-
-  let B_TREE_HEADER_SIZE : Nat64 = 52;
-
-  type BTreeHeader = {
-    magic: [Nat8]; // 3 bytes
-    version: Nat8;
-    max_key_size: Nat32;
-    max_value_size: Nat32;
-    root_addr: Address;
-    length: Nat64;
-    // Additional space reserved to add new fields without breaking backward-compatibility.
-    _buffer: [Nat8]; // 24 bytes
-  };
-
-  func saveBTreeHeader(header: BTreeHeader, addr: Address, memory: Memory) {
-    Memory.write(memory, addr                        ,                                   header.magic);
-    Memory.write(memory, addr + 3                    ,                               [header.version]);
-    Memory.write(memory, addr + 3 + 1                ,   Conversion.nat32ToBytes(header.max_key_size));
-    Memory.write(memory, addr + 3 + 1 + 4            , Conversion.nat32ToBytes(header.max_value_size));
-    Memory.write(memory, addr + 3 + 1 + 4 + 4        ,      Conversion.nat64ToBytes(header.root_addr));
-    Memory.write(memory, addr + 3 + 1 + 4 + 4 + 8    ,         Conversion.nat64ToBytes(header.length));
-    Memory.write(memory, addr + 3 + 1 + 4 + 4 + 8 + 8,                                 header._buffer);
-  };
-
-  func loadBTreeHeader(addr: Address, memory: Memory) : BTreeHeader {
-    let header = {
-      magic =                                  Memory.read(memory, addr                        , 3);
-      version =                                Memory.read(memory, addr + 3                    , 1)[0];
-      max_key_size =   Conversion.bytesToNat32(Memory.read(memory, addr + 3 + 1                , 4));
-      max_value_size = Conversion.bytesToNat32(Memory.read(memory, addr + 3 + 1 + 4            , 4));
-      root_addr =      Conversion.bytesToNat64(Memory.read(memory, addr + 3 + 1 + 4 + 4        , 8));
-      length =         Conversion.bytesToNat64(Memory.read(memory, addr + 3 + 1 + 4 + 4 + 8    , 8));
-      _buffer =                                Memory.read(memory, addr + 3 + 1 + 4 + 4 + 8 + 8, 24);
-    };
-    if (header.magic != Blob.toArray(Text.encodeUtf8(MAGIC))) { Debug.trap("Bad magic."); };
-    if (header.version != LAYOUT_VERSION)                     { Debug.trap("Unsupported version."); };
-    
-    header;
-  };
-
-  type BTreeMapMembers<K, V> = {
-    root_addr : Address;
-    max_key_size : Nat32;
-    max_value_size : Nat32;
-    key_converter: BytesConverter<K>;
-    value_converter: BytesConverter<V>;
-    allocator : Allocator;
-    length : Nat64;
-    memory : Memory;
-  };
-
-  public class BTreeMap<K, V>(members: BTreeMapMembers<K, V>) = self {
+  public class BTreeMap<K, V>(key_converter:  BytesConverter<K>, value_converter: BytesConverter<V>) = self {
     
     /// Members
-    // The address of the root node. If a root node doesn't exist, the address is set to NULL.
-    var root_addr_ : Address = members.root_addr;
-    // The maximum size a key can have.
-    let max_key_size_ : Nat32 = members.max_key_size;
-    // The maximum size a value can have.
-    let max_value_size_ : Nat32 = members.max_value_size;
+    // The root node.
+    var root_node_ = Node.Node(#Leaf, 0);
     /// To convert the key into/from bytes.
-    let key_converter_ : BytesConverter<K> = members.key_converter;
+    let key_converter_ = key_converter;
     /// To convert the value into/from bytes.
-    let value_converter_ : BytesConverter<V> = members.value_converter;
-    // An allocator used for managing memory and allocating nodes.
-    let allocator_ : Allocator = members.allocator;
+    let value_converter_ = value_converter;
     // The number of elements in the map.
-    var length_ : Nat64 = members.length;
-    /// The memory used to load/save the map.
-    let memory_ : Memory = members.memory;
+    var length_ : Nat64 = 0;
+    // The identifier given to the last created node.
+    var last_identifier_ : Nat64 = 0;
 
     /// Getters
-    public func getRootAddr() : Address { root_addr_; };
-    public func getMaxKeySize() : Nat32 { max_key_size_; };
-    public func getMaxValueSize() : Nat32 { max_value_size_; };
+    public func getRootNode() : Node { root_node_; };
     public func getKeyConverter() : BytesConverter<K> { key_converter_; };
     public func getValueConverter() : BytesConverter<V> { value_converter_; };
-    public func getAllocator() : Allocator { allocator_; };
     public func getLength() : Nat64 { length_; };
-    public func getMemory() : Memory { memory_; };
 
     /// Inserts a key-value pair into the map.
     ///
     /// The previous value of the key, if present, is returned.
-    ///
-    /// The size of the key/value must be <= the max key/value sizes configured
-    /// for the map. Otherwise, an `InsertError` is returned.
-    public func insert(k: K, v: V) : Result<?V, InsertError> {
+    public func insert(k: K, v: V) : ?V {
       let key = key_converter_.toBytes(k);
       let value = value_converter_.toBytes(v);
 
-      // Verify the size of the key.
-      if (key.size() > Nat32.toNat(max_key_size_)) {
-        return #err(#KeyTooLarge {
-          given = key.size();
-          max = Nat32.toNat(max_key_size_);
-        });
-      };
-
-      // Verify the size of the value.
-      if (value.size() > Nat32.toNat(max_value_size_)) {
-        return #err(#ValueTooLarge {
-          given = value.size();
-          max = Nat32.toNat(max_value_size_);
-        });
-      };
-
       let root = do {
-        if (root_addr_ == Constants.NULL) {
-          // No root present. Allocate one.
-          let node = allocateNode(#Leaf);
-          root_addr_ := node.getAddress();
-          save();
-          node;
-        } else {
-          // Load the root from memory.
-          var root = loadNode(root_addr_);
 
-          // Check if the key already exists in the root.
-          switch(root.getKeyIdx(key)) {
-            case(#ok(idx)){
-              // The key exists. Overwrite it and return the previous value.
-              let (_, previous_value) = root.swapEntry(idx, (key, value));
-              root.save(memory_);
-              return #ok(?(value_converter_.fromBytes(previous_value)));
-            };
-            case(#err(_)){
-              // If the root is full, we need to introduce a new node as the root.
-              //
-              // NOTE: In the case where we are overwriting an existing key, then introducing
-              // a new root node isn't strictly necessary. However, that's a micro-optimization
-              // that adds more complexity than it's worth.
-              if (root.isFull()) {
-                // The root is full. Allocate a new node that will be used as the new root.
-                var new_root = allocateNode(#Internal);
-      
-                // The new root has the old root as its only child.
-                new_root.addChild(root_addr_);
-      
-                // Update the root address.
-                root_addr_ := new_root.getAddress();
-                save();
-      
-                // Split the old (full) root. 
-                splitChild(new_root, 0);
-      
-                new_root;
-              } else {
-                root;
-              };
+        var root = root_node_;
+
+        // Check if the key already exists in the root.
+        switch(root.getKeyIdx(key)) {
+          case(#ok(idx)){
+            // The key exists. Overwrite it and return the previous value.
+            let (_, previous_value) = root.swapEntry(idx, (key, value));
+            return ?(value_converter_.fromBytes(previous_value));
+          };
+          case(#err(_)){
+            // If the root is full, we need to introduce a new node as the root.
+            //
+            // NOTE: In the case where we are overwriting an existing key, then introducing
+            // a new root node isn't strictly necessary. However, that's a micro-optimization
+            // that adds more complexity than it's worth.
+            if (root.isFull()) {
+              // The root is full. Allocate a new node that will be used as the new root.
+              var new_root = createNode(#Internal);
+    
+              // The new root has the old root as its only child.
+              new_root.addChild(root_node_);
+    
+              // Update the root address.
+              root_node_ := new_root;
+    
+              // Split the old (full) root. 
+              splitChild(new_root, 0);
+    
+              new_root;
+            } else {
+              root;
             };
           };
         };
       };
-      #ok(Option.map<[Nat8], V>(
+      Option.map<[Nat8], V>(
         insertNonFull(root, key, value),
-        func(bytes: [Nat8]) : V { value_converter_.fromBytes(bytes); })
-      );
+        func(bytes: [Nat8]) : V { value_converter_.fromBytes(bytes); });
     };
 
     // Inserts an entry into a node that is *not full*.
@@ -299,7 +105,6 @@ module {
           // Overwrite it and return the previous value.
           let (_, previous_value) = node.swapEntry(idx, (key, value));
 
-          node.save(memory_);
           return ?previous_value;
         };
         case(#err(idx)){
@@ -310,20 +115,17 @@ module {
               // The node is a non-full leaf.
               // Insert the entry at the proper location.
               node.insertEntry(idx, (key, value));
-              
-              node.save(memory_);
 
               // Update the length.
               length_ += 1;
-              save();
 
               // No previous value to return.
               return null;
             };
             case(#Internal){
               // The node is an internal node.
-              // Load the child that we should add the entry to.
-              var child = loadNode(node.getChild(idx));
+              // Get the child that we should add the entry to.
+              var child = node.getChild(idx);
 
               if (child.isFull()) {
                 // Check if the key already exists in the child.
@@ -332,7 +134,6 @@ module {
                     // The key exists. Overwrite it and return the previous value.
                     let (_, previous_value) = child.swapEntry(idx, (key, value));
 
-                    child.save(memory_);
                     return ?previous_value;
                   };
                   case(#err(_)){
@@ -346,7 +147,7 @@ module {
                       case(#err(i)) { i; };
                     };
 
-                    child := loadNode(node.getChild(index));
+                    child := node.getChild(index);
                   };
                 };
               };
@@ -382,22 +183,22 @@ module {
       assert(not node.isFull());
 
       // The node's child must be full.
-      var full_child = loadNode(node.getChild(full_child_idx));
+      var full_child = node.getChild(full_child_idx);
       assert(full_child.isFull());
 
       // Create a sibling to this full child (which has to be the same type).
-      var sibling = allocateNode(full_child.getNodeType());
+      var sibling = createNode(full_child.getNodeType());
       assert(sibling.getNodeType() == full_child.getNodeType());
 
       // Move the values above the median into the new sibling.
       sibling.setEntries(Utils.splitOff<Entry>(full_child.getEntries(), Constants.B));
 
       if (full_child.getNodeType() == #Internal) {
-        sibling.setChildren(Utils.splitOff<Address>(full_child.getChildren(), Constants.B));
+        sibling.setChildren(Utils.splitOff<Node>(full_child.getChildren(), Constants.B));
       };
 
       // Add sibling as a new child in the node. 
-      node.insertChild(full_child_idx + 1, sibling.getAddress());
+      node.insertChild(full_child_idx + 1, sibling);
 
       // Move the median entry into the node.
       switch(full_child.popEntry()){
@@ -406,26 +207,19 @@ module {
         };
         case(?median_entry){
           node.insertEntry(full_child_idx, median_entry);
-          sibling.save(memory_);
-          full_child.save(memory_);
-          node.save(memory_);
         };
       };
     };
 
     /// Returns the value associated with the given key if it exists.
     public func get(key: K) : ?V {
-      if (root_addr_ == Constants.NULL) {
-        return null;
-      };
       Option.map<[Nat8], V>(
-        getHelper(root_addr_, key_converter_.toBytes(key)),
+        getHelper(root_node_, key_converter_.toBytes(key)),
         func(bytes: [Nat8]) : V { value_converter_.fromBytes(bytes); }
       );
     };
 
-    func getHelper(node_addr: Address, key: [Nat8]) : ?[Nat8] {
-      let node = loadNode(node_addr);
+    func getHelper(node: Node, key: [Nat8]) : ?[Nat8] {
       switch(node.getKeyIdx(key)){
         case(#ok(idx)) { ?node.getEntry(idx).1; };
         case(#err(idx)) {
@@ -452,20 +246,16 @@ module {
 
     /// Removes a key from the map, returning the previous value at the key if it exists.
     public func remove(key: K) : ?V {
-      if (root_addr_ == Constants.NULL) {
-        return null;
-      };
       Option.map<[Nat8], V>(
-        removeHelper(root_addr_, key_converter_.toBytes(key)),
+        removeHelper(root_node_, key_converter_.toBytes(key)),
         func(bytes: [Nat8]) : V { value_converter_.fromBytes(bytes); }
       );
     };
 
     // A helper method for recursively removing a key from the B-tree.
-    func removeHelper(node_addr: Address, key: [Nat8]) : ?[Nat8] {
-      var node = loadNode(node_addr);
+    func removeHelper(node: Node, key: [Nat8]) : ?[Nat8] {
 
-      if(node.getAddress() != root_addr_){
+      if(node.getIdentifier() != root_node_.getIdentifier()){
         // We're guaranteed that whenever this method is called the number
         // of keys is >= `B`. Note that this is higher than the minimum required
         // in a node, which is `B - 1`, and that's because this strengthened
@@ -484,18 +274,11 @@ module {
               length_ -= 1;
 
               if (node.getEntries().size() == 0) {
-                if (node.getAddress() != root_addr_) {
+                if (node.getIdentifier() != root_node_.getIdentifier()) {
                   Debug.trap("Removal can only result in an empty leaf node if that node is the root");
                 };
-
-                // Deallocate the empty node.
-                allocator_.deallocate(node.getAddress());
-                root_addr_ := Constants.NULL;
-              } else {
-                node.save(memory_);
               };
-
-              save();
+              
               ?value;
             };
             case(_) { null; }; // Key not found.
@@ -507,7 +290,7 @@ module {
               // Case 2: The node is an internal node and the key exists in it.
 
               // Check if the child that precedes `key` has at least `B` keys.
-              let left_child = loadNode(node.getChild(idx));
+              let left_child = node.getChild(idx);
               if (left_child.getEntries().size() >= Constants.B) {
                 // Case 2.a: The node's left child has >= `B` keys.
                 //
@@ -531,19 +314,17 @@ module {
 
                 // Recursively delete the predecessor.
                 // TODO(EXC-1034): Do this in a single pass.
-                let predecessor = left_child.getMax(memory_);
+                let predecessor = left_child.getMax();
                 ignore removeHelper(node.getChild(idx), predecessor.0);
 
                 // Replace the `key` with its predecessor.
                 let (_, old_value) = node.swapEntry(idx, predecessor);
 
-                // Save the parent node.
-                node.save(memory_);
                 return ?old_value;
               };
 
               // Check if the child that succeeds `key` has at least `B` keys.
-              let right_child = loadNode(node.getChild(idx + 1));
+              let right_child = node.getChild(idx + 1);
               if (right_child.getEntries().size() >= Constants.B) {
                 // Case 2.b: The node's right child has >= `B` keys.
                 //
@@ -567,14 +348,12 @@ module {
 
                 // Recursively delete the successor.
                 // TODO(EXC-1034): Do this in a single pass.
-                let successor = right_child.getMin(memory_);
+                let successor = right_child.getMin();
                 ignore removeHelper(node.getChild(idx + 1), successor.0);
 
                 // Replace the `key` with its successor.
                 let (_, old_value) = node.swapEntry(idx, successor);
 
-                // Save the parent node.
-                node.save(memory_);
                 return ?old_value;
               };
 
@@ -609,28 +388,21 @@ module {
 
               if (node.getEntries().size() == 0) {
                 // Can only happen if this node is root.
-                assert(node.getAddress() == root_addr_);
-                assert(node.getChildren().toArray() == [new_child.getAddress()]);
+                assert(node.getIdentifier() == root_node_.getIdentifier());
+                assert(node.getChildrenIdentifiers() == [new_child.getIdentifier()]);
 
-                root_addr_ := new_child.getAddress();
-
-                // Deallocate the root node.
-                allocator_.deallocate(node.getAddress());
-                save();
+                root_node_ := new_child;
               };
 
-              node.save(memory_);
-              new_child.save(memory_);
-
               // Recursively delete the key.
-              removeHelper(new_child.getAddress(), key);
+              removeHelper(new_child, key);
             };
             case(#err(idx)) {
               // Case 3: The node is an internal node and the key does NOT exist in it.
 
               // If the key does exist in the tree, it will exist in the subtree at index
               // `idx`.
-              var child = loadNode(node.getChild(idx));
+              var child = node.getChild(idx);
 
               if (child.getEntries().size() >= Constants.B) {
                 // The child has enough nodes. Recurse to delete the `key` from the
@@ -641,7 +413,7 @@ module {
               // The child has < `B` keys. Let's see if it has a sibling with >= `B` keys.
               var left_sibling = do {
                 if (idx > 0) {
-                  ?loadNode(node.getChild(idx- 1));
+                  ?node.getChild(idx- 1);
                 } else {
                   null;
                 };
@@ -649,7 +421,7 @@ module {
 
               var right_sibling = do {
                 if (idx + 1 < node.getChildren().size()) {
-                  ?loadNode(node.getChild(idx + 1));
+                  ?node.getChild(idx + 1);
                 } else {
                   null;
                 };
@@ -706,10 +478,7 @@ module {
                           };
                         };
 
-                        left_sibling.save(memory_);
-                        child.save(memory_);
-                        node.save(memory_);
-                        return removeHelper(child.getAddress(), key);
+                        return removeHelper(child, key);
                       };
                     };
                   };
@@ -762,10 +531,7 @@ module {
                       };
                     };
 
-                    right_sibling.save(memory_);
-                    child.save(memory_);
-                    node.save(memory_);
-                    return removeHelper(child.getAddress(), key);
+                    return removeHelper(child, key);
                   };
                 };
               };
@@ -776,25 +542,19 @@ module {
                 case(null){};
                 case(?left_sibling){
                   // Merge child into left sibling if it exists.
-
-                  let left_sibling_address = left_sibling.getAddress();
                   ignore merge(child, left_sibling, node.removeEntry(idx - 1));
                   // Removing child from parent.
                   ignore node.removeChild(idx);
 
                   if (node.getEntries().size() == 0) {
-                    allocator_.deallocate(node.getAddress());
 
-                    if (node.getAddress() == root_addr_) {
+                    if (node.getIdentifier() == root_node_.getIdentifier()) {
                       // Update the root.
-                      root_addr_ := left_sibling_address;
-                      save();
+                      root_node_ := left_sibling;
                     };
-                  } else {
-                    node.save(memory_);
                   };
 
-                  return removeHelper(left_sibling_address, key);
+                  return removeHelper(left_sibling, key);
                 };
               };
 
@@ -803,25 +563,20 @@ module {
                 case(?right_sibling){
                   // Merge child into right sibling.
 
-                  let right_sibling_address = right_sibling.getAddress();
                   ignore merge(child, right_sibling, node.removeEntry(idx));
 
                   // Removing child from parent.
                   ignore node.removeChild(idx);
 
                   if (node.getEntries().size() == 0) {
-                    allocator_.deallocate(node.getAddress());
 
-                    if (node.getAddress() == root_addr_) {
+                    if (node.getIdentifier() == root_node_.getIdentifier()) {
                       // Update the root.
-                      root_addr_ := right_sibling_address;
-                      save();
+                      root_node_ := right_sibling;
                     };
-                  } else {
-                    node.save(memory_);
                   };
 
-                  return removeHelper(right_sibling_address, key);
+                  return removeHelper(right_sibling, key);
                 };
               };
 
@@ -834,7 +589,7 @@ module {
 
     // Returns an iterator over the entries of the map, sorted by key.
     public func iter() : Iter<K, V> {
-      Iter.new(self);
+      Iter.new<K, V>(self);
     };
 
     /// Returns an iterator over the entries in the map where keys begin with the given `prefix`.
@@ -842,12 +597,8 @@ module {
     /// contains this `offset` (while still iterating over all remaining entries that begin
     /// with the given `prefix`).
     public func range(prefix: [Nat8], offset: ?[Nat8]) : Iter<K, V> {
-      if (root_addr_ == Constants.NULL) {
-        // Map is empty.
-        return Iter.empty(self);
-      };
 
-      var node = loadNode(root_addr_);
+      var node = root_node_;
       let cursors : Buffer.Buffer<Cursor> = Buffer.Buffer<Cursor>(0);
 
       loop {
@@ -874,14 +625,14 @@ module {
           case(#Internal) {
             // Note that loading a child node cannot fail since
             // len(children) = len(entries) + 1
-            ?loadNode(node.getChild(idx));
+            ?node.getChild(idx);
           };
           case(#Leaf) { null; };
         };
 
         // If the prefix is found in the node, then add a cursor starting from its index.
         if (idx < node.getEntries().size() and Utils.isPrefixOf(prefix, node.getEntry(idx).0, Nat8.equal)){
-          cursors.add(#Node {
+          cursors.add({
             node;
             next = #Entry(Nat64.fromNat(idx));
           });
@@ -926,9 +677,6 @@ module {
       assert(source.getEntries().size() != 0);
       assert(into.getEntries().size() != 0);
 
-      let into_address = into.getAddress();
-      let source_address = source.getAddress();
-
       // Figure out which node contains lower values than the other.
       let (lower, higher) = do {
         if (Order.isLess(Node.compareEntryKeys(source.getEntry(0).0, into.getEntry(0).0))){
@@ -942,45 +690,15 @@ module {
 
       lower.appendEntries(higher.getEntries());
 
-      lower.setAddress(into_address);
-
       // Move the children (if any exist).
       lower.appendChildren(higher.getChildren());
 
-      lower.save(memory_);
-
-      allocator_.deallocate(source_address);
       lower;
     };
 
-    func allocateNode(node_type: NodeType) : Node {
-      Node.Node({
-        address = allocator_.allocate();
-        entries = [];
-        children = [];
-        node_type;
-        max_key_size = max_key_size_;
-        max_value_size = max_value_size_;
-      });
-    };
-
-    public func loadNode(address: Address) : Node {
-      Node.load(address, memory_, max_key_size_, max_value_size_);
-    };
-
-    // Saves the map to memory.
-    public func save() {
-      let header : BTreeHeader = {
-        magic = Blob.toArray(Text.encodeUtf8(MAGIC));
-        version = LAYOUT_VERSION;
-        root_addr = root_addr_;
-        max_key_size = max_key_size_;
-        max_value_size = max_value_size_;
-        length = length_;
-        _buffer = Array.freeze<Nat8>(Array.init<Nat8>(24, 0));
-      };
-
-      saveBTreeHeader(header, Constants.ADDRESS_0, memory_);
+    func createNode(node_type: NodeType) : Node {
+      last_identifier_ := last_identifier_ + 1;
+      Node.Node(node_type, last_identifier_);
     };
 
   };

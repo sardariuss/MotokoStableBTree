@@ -1,4 +1,3 @@
-import Memory "../../src/memory";
 import BTreeMap "../../src/btreemap";
 import Node "../../src/node";
 import TestableItems "testableItems";
@@ -13,15 +12,14 @@ module {
   // For convenience: from other modules
   type TestBuffer = TestableItems.TestBuffer;
 
-  func iterateLeaf(test: TestBuffer) {
-    let bytes_passtrough = {
+  let bytes_passtrough = {
       fromBytes = func(bytes: [Nat8]) : [Nat8] { bytes; };
       toBytes = func(bytes: [Nat8]) : [Nat8] { bytes; };
     };
 
-    // Iterate on leaf
-    let memory = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(memory, 1, 1, bytes_passtrough, bytes_passtrough);
+  func iterateLeaf(test: TestBuffer) {
+    
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
 
     for (i in Iter.range(0, Nat64.toNat(Node.getCapacity() - 1))){
       ignore btree.insert([Nat8.fromNat(i)], [Nat8.fromNat(i + 1)]);
@@ -38,14 +36,8 @@ module {
   };
 
   func iterateChildren(test: TestBuffer) {
-    let bytes_passtrough = {
-      fromBytes = func(bytes: [Nat8]) : [Nat8] { bytes; };
-      toBytes = func(bytes: [Nat8]) : [Nat8] { bytes; };
-    };
 
-    // Iterate on leaf
-    let memory = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(memory, 1, 1, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
 
     // Insert the elements in reverse order.
     for (i in Iter.revRange(99, 0)){

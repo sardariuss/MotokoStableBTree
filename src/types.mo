@@ -7,25 +7,15 @@ module {
   type Result<Ok, Err> = Result.Result<Ok, Err>;
   type Buffer<T> = Buffer.Buffer<T>;
 
-  public type Address = Nat64;
-  public type Bytes = Nat64;
-
   public type BytesConverter<T> = {
     fromBytes: ([Nat8]) -> T;
     toBytes: (T) -> [Nat8];
   };
 
-  public type Memory = {
-    size: () -> Nat64;
-    grow: (Nat64) -> Int64;
-    write: (Nat64, [Nat8]) -> ();
-    read: (Nat64, Nat) -> [Nat8];
-  };
-
   /// An indicator of the current position in the map.
   public type Cursor = {
-    #Address: Address;
-    #Node: { node: INode; next: Index; };
+    node: INode;
+    next: Index;
   };
 
   /// An index into a node's child or entry.
@@ -47,69 +37,45 @@ module {
   };
 
   public type INode = {
-    getAddress: () -> Address;
     getEntries: () -> Buffer<Entry>;
-    getChildren: () -> Buffer<Address>;
+    getChildren: () -> Buffer<INode>;
     getNodeType: () -> NodeType;
-    getMaxKeySize: () -> Nat32;
-    getMaxValueSize: () -> Nat32;
-    save: (Memory) -> ();
-    getMax: (Memory) -> Entry;
-    getMin: (Memory) -> Entry;
+    getIdentifier: () -> Nat64;
+    getMax: () -> Entry;
+    getMin: () -> Entry;
     isFull: () -> Bool;
     swapEntry: (Nat, Entry) -> Entry;
     getKeyIdx: ([Nat8]) -> Result<Nat, Nat>;
-    getChild: (Nat) -> Address;
+    getChild: (Nat) -> INode;
     getEntry: (Nat) -> Entry;
-    setChildren: (Buffer<Address>) -> ();
+    getChildrenIdentifiers : () -> [Nat64];
+    setChildren: (Buffer<INode>) -> ();
     setEntries: (Buffer<Entry>) -> ();
-    setAddress: (Address) -> ();
-    addChild: (Address) -> ();
+    addChild: (INode) -> ();
     addEntry: (Entry) -> ();
     popEntry: () -> ?Entry;
-    popChild: () -> ?Address;
-    insertChild: (Nat, Address) -> ();
+    popChild: () -> ?INode;
+    insertChild: (Nat, INode) -> ();
     insertEntry: (Nat, Entry) -> ();
-    removeChild: (Nat) -> Address;
+    removeChild: (Nat) -> INode;
     removeEntry: (Nat) -> Entry;
-    appendChildren: (Buffer<Address>) -> ();
+    appendChildren: (Buffer<INode>) -> ();
     appendEntries: (Buffer<Entry>) -> ();
     entriesToText: () -> Text;
   };
 
-  public type IAllocator = {
-    getHeaderAddr: () -> Address;
-    getAllocationSize: () -> Bytes;
-    getNumAllocatedChunks: () -> Nat64;
-    getFreeListHead: () -> Address;
-    getMemory: () -> Memory;
-    allocate: () ->  Address;
-    deallocate: (Address) -> ();
-    saveAllocator: () -> ();
-    chunkSize: () -> Bytes;
-  };
-
-  public type InsertError = {
-    #KeyTooLarge : { given : Nat; max : Nat; };
-    #ValueTooLarge : { given : Nat; max : Nat; };
-  };
-
   public type IBTreeMap<K, V> = {
-    getRootAddr : () -> Address;
-    getMaxKeySize : () -> Nat32;
-    getMaxValueSize : () -> Nat32;
+    getRootNode : () -> INode;
     getKeyConverter : () -> BytesConverter<K>;
     getValueConverter : () -> BytesConverter<V>;
-    getAllocator : () -> IAllocator;
     getLength : () -> Nat64;
-    getMemory : () -> Memory;
-    insert : (k: K, v: V) -> Result<?V, InsertError>;
+    insert : (k: K, v: V) -> ?V;
     get : (key: K) -> ?V;
     containsKey : (key: K) -> Bool;
     isEmpty : () -> Bool;
     remove : (key: K) -> ?V;
     iter : () -> IIter<K, V>;
-    loadNode : (address: Address) -> INode;
+    range : ([Nat8], ?[Nat8]) -> IIter<K, V>;
   };
 
 };

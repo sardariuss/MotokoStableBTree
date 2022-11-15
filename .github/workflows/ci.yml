@@ -18,14 +18,6 @@ jobs:
       run: |
        wget --output-document /home/runner/bin/vessel https://github.com/dfinity/vessel/releases/download/v0.6.4/vessel-linux64
        chmod +x /home/runner/bin/vessel
-    - name: "install dfx"
-      run: |
-       DFX_VERSION=0.11.2 DFX_INSTALL_ROOT=/home/runner/bin/ sh -ci "$(curl -sSL https://internetcomputer.org/install.sh)"
-       chmod +x /home/runner/bin/dfx
-    - name: "install ic-repl"
-      run: |
-       wget --output-document /home/runner/bin/ic-repl https://github.com/chenyan2002/ic-repl/releases/download/0.3.8/ic-repl-linux64
-       chmod +x /home/runner/bin/ic-repl
     - name: "check"
       run: make check-strict
     - name: "test"

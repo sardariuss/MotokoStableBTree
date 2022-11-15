@@ -14,15 +14,23 @@ module {
 
   // For convenience: from types module
   type IBTreeMap<K, V> = Types.IBTreeMap<K, V>;
+  type Index = Types.Index;
   type Cursor = Types.Cursor;
   // For convenience: from node module
   type Node = Node.Node;
 
   public func new<K, V>(map: IBTreeMap<K, V>) : Iter<K, V>{
+    // Initialize the cursors with the root of the map.
+    let node = map.getRootNode();
+    let next : Index = switch(map.getRootNode().getNodeType()) {
+      // Iterate on internal nodes starting from the first child.
+      case(#Internal) { #Child(0); };
+      // Iterate on leaf nodes starting from the first entry.
+      case(#Leaf) { #Entry(0); };
+    };
     Iter({
       map;
-      // Initialize the cursors with the address of the root of the map.
-      cursors = [#Address(map.getRootAddr())];
+      cursors = [{node; next;}];
       prefix = null;
       offset = null;
     });
@@ -85,92 +93,79 @@ module {
 
     public func next() : ?(K, V) {
       switch(cursors_.pop()) {
-        case(?cursor){
-          switch(cursor){
-            case(#Address(address)){
-              if (address != Constants.NULL){
-                // Load the node at the given address, and add it to the cursors.
-                let node = map_.loadNode(address);
-
-                cursors_.push(#Node{
-                  next = switch(node.getNodeType()) {
-                    // Iterate on internal nodes starting from the first child.
-                    case(#Internal) { #Child(0); };
-                    // Iterate on leaf nodes starting from the first entry.
-                    case(#Leaf) { #Entry(0); };
-                  };
-                  node;
-                });
+        case(?{node; next;}){
+          switch(next){
+            case(#Child(child_idx)){
+              if (Nat64.toNat(child_idx) >= node.getChildren().size()){
+                Debug.trap("Iterating over children went out of bounds.");
               };
+              
+              // After iterating on the child, iterate on the next _entry_ in this node.
+              // The entry immediately after the child has the same index as the child's.
+              cursors_.push({
+                node;
+                next = #Entry(child_idx);
+              });
+
+              // Add the child to the top of the cursors to be iterated on first.
+              let child = node.getChild(Nat64.toNat(child_idx));
+              cursors_.push({
+                node = child;
+                next = switch(child.getNodeType()) {
+                  // Iterate on internal nodes starting from the first child.
+                  case(#Internal) { #Child(0); };
+                  // Iterate on leaf nodes starting from the first entry.
+                  case(#Leaf) { #Entry(0); };
+                };
+              });
+
               return self.next();
             };
-            case(#Node({node; next;})){
-              switch(next){
-                case(#Child(child_idx)){
-                  if (Nat64.toNat(child_idx) >= node.getChildren().size()){
-                    Debug.trap("Iterating over children went out of bounds.");
-                  };
-                  
-                  // After iterating on the child, iterate on the next _entry_ in this node.
-                  // The entry immediately after the child has the same index as the child's.
-                  cursors_.push(#Node {
-                    node;
-                    next = #Entry(child_idx);
-                  });
+            case(#Entry(entry_idx)){
+              if (Nat64.toNat(entry_idx) >= node.getEntries().size()) {
+                // No more entries to iterate on in this node.
+                return self.next();
+              };
 
-                  // Add the child to the top of the cursors to be iterated on first.
-                  let child_address = node.getChild(Nat64.toNat(child_idx));
-                  cursors_.push(#Address(child_address));
+              // Take the entry from the node. It's swapped with an empty element to
+              // avoid cloning.
+              let entry = node.swapEntry(Nat64.toNat(entry_idx), ([], []));
 
-                  return self.next();
+              // Add to the cursors the next element to be traversed.
+              cursors_.push({
+                next = switch(node.getNodeType()){
+                  // If this is an internal node, add the next child to the cursors.
+                  case(#Internal) { #Child(entry_idx + 1); };
+                  // If this is a leaf node, add the next entry to the cursors.
+                  case(#Leaf) { #Entry(entry_idx + 1); };
                 };
-                case(#Entry(entry_idx)){
-                  if (Nat64.toNat(entry_idx) >= node.getEntries().size()) {
-                    // No more entries to iterate on in this node.
-                    return self.next();
-                  };
+                node;
+              });
 
-                  // Take the entry from the node. It's swapped with an empty element to
-                  // avoid cloning.
-                  let entry = node.swapEntry(Nat64.toNat(entry_idx), ([], []));
-
-                  // Add to the cursors the next element to be traversed.
-                  cursors_.push(#Node {
-                    next = switch(node.getNodeType()){
-                      // If this is an internal node, add the next child to the cursors.
-                      case(#Internal) { #Child(entry_idx + 1); };
-                      // If this is a leaf node, add the next entry to the cursors.
-                      case(#Leaf) { #Entry(entry_idx + 1); };
-                    };
-                    node;
-                  });
-
-                  // If there's a prefix, verify that the key has that given prefix.
-                  // Otherwise iteration is stopped.
-                  switch(prefix_){
+              // If there's a prefix, verify that the key has that given prefix.
+              // Otherwise iteration is stopped.
+              switch(prefix_){
+                case(null) {};
+                case(?prefix){
+                  if (not Utils.isPrefixOf(prefix, entry.0, Nat8.equal)){
+                    // Clear all cursors to avoid needless work in subsequent calls.
+                    cursors_ := Stack.Stack<Cursor>();
+                    return null;
+                  } else switch(offset_) {
                     case(null) {};
-                    case(?prefix){
-                      if (not Utils.isPrefixOf(prefix, entry.0, Nat8.equal)){
-                        // Clear all cursors to avoid needless work in subsequent calls.
+                    case(?offset){
+                      let prefix_with_offset = Utils.toBuffer<Nat8>(prefix);
+                      prefix_with_offset.append(Utils.toBuffer<Nat8>(offset));
+                      // Clear all cursors to avoid needless work in subsequent calls.
+                      if (Order.isLess(Node.compareEntryKeys(entry.0, prefix_with_offset.toArray()))){  
                         cursors_ := Stack.Stack<Cursor>();
                         return null;
-                      } else switch(offset_) {
-                        case(null) {};
-                        case(?offset){
-                          let prefix_with_offset = Utils.toBuffer<Nat8>(prefix);
-                          prefix_with_offset.append(Utils.toBuffer<Nat8>(offset));
-                          // Clear all cursors to avoid needless work in subsequent calls.
-                          if (Order.isLess(Node.compareEntryKeys(entry.0, prefix_with_offset.toArray()))){  
-                            cursors_ := Stack.Stack<Cursor>();
-                            return null;
-                          };
-                        };
                       };
                     };
                   };
-                  return ?(map_.getKeyConverter().fromBytes(entry.0), map_.getValueConverter().fromBytes(entry.1));
                 };
               };
+              return ?(map_.getKeyConverter().fromBytes(entry.0), map_.getValueConverter().fromBytes(entry.1));
             };
           };
         };
