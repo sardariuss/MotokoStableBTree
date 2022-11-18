@@ -381,7 +381,8 @@ module {
               assert(right_child.getEntries().size() == num_keys);
 
               // Merge the right child into the left child.
-              let new_child = merge(right_child, left_child, node.removeEntry(idx));
+              let new_child = merge(left_child, right_child, node.removeEntry(idx));
+              node.setChild(idx, new_child);
 
               // Remove the right child from the parent node.
               ignore node.removeChild(idx + 1);
@@ -413,7 +414,7 @@ module {
               // The child has < `B` keys. Let's see if it has a sibling with >= `B` keys.
               var left_sibling = do {
                 if (idx > 0) {
-                  ?node.getChild(idx- 1);
+                  ?node.getChild(idx - 1);
                 } else {
                   null;
                 };
@@ -541,8 +542,11 @@ module {
               switch(left_sibling){
                 case(null){};
                 case(?left_sibling){
-                  // Merge child into left sibling if it exists.
-                  ignore merge(child, left_sibling, node.removeEntry(idx - 1));
+                  
+                  // Merge child into left sibling.
+                  let new_left_sibling = merge(left_sibling, child, node.removeEntry(idx - 1));
+                  node.setChild(idx - 1, new_left_sibling);
+                  
                   // Removing child from parent.
                   ignore node.removeChild(idx);
 
@@ -550,33 +554,34 @@ module {
 
                     if (node.getIdentifier() == root_node_.getIdentifier()) {
                       // Update the root.
-                      root_node_ := left_sibling;
+                      root_node_ := new_left_sibling;
                     };
                   };
 
-                  return removeHelper(left_sibling, key);
+                  return removeHelper(new_left_sibling, key);
                 };
               };
 
               switch(right_sibling){
                 case(null){};
                 case(?right_sibling){
-                  // Merge child into right sibling.
-
-                  ignore merge(child, right_sibling, node.removeEntry(idx));
+                  
+                  // Merge right sibling into child.
+                  let new_child = merge(child, right_sibling, node.removeEntry(idx));
+                  node.setChild(idx, new_child);
 
                   // Removing child from parent.
-                  ignore node.removeChild(idx);
+                  ignore node.removeChild(idx + 1);
 
                   if (node.getEntries().size() == 0) {
 
                     if (node.getIdentifier() == root_node_.getIdentifier()) {
                       // Update the root.
-                      root_node_ := right_sibling;
+                      root_node_ := new_child;
                     };
                   };
 
-                  return removeHelper(right_sibling, key);
+                  return removeHelper(new_child, key);
                 };
               };
 
@@ -660,31 +665,24 @@ module {
       };
     };
 
-    // Merges one node (`source`) into another (`into`), along with a median entry.
+    // Merges one node (`higher`) into another node (`lower`), along with a median entry.
     //
     // Example (values are not included for brevity):
     //
     // Input:
-    //   Source: [1, 2, 3]
-    //   Into: [5, 6, 7]
+    //   lower: [1, 2, 3]
+    //   higher: [5, 6, 7]
     //   Median: 4
     //
     // Output:
-    //   [1, 2, 3, 4, 5, 6, 7] (stored in the `into` node)
-    //   `source` is deallocated.
-    func merge(source: Node, into: Node, median: Entry) : Node {
-      assert(source.getNodeType() == into.getNodeType());
-      assert(source.getEntries().size() != 0);
-      assert(into.getEntries().size() != 0);
+    //   [1, 2, 3, 4, 5, 6, 7] (stored in the `lower` node)
+    func merge(lower: Node, higher: Node, median: Entry) : Node {
+      let original_size = higher.getChildren().size();
 
-      // Figure out which node contains lower values than the other.
-      let (lower, higher) = do {
-        if (Order.isLess(Node.compareEntryKeys(source.getEntry(0).0, into.getEntry(0).0))){
-          (source, into);
-        } else {
-          (into, source);
-        };
-      };
+      assert(lower.getNodeType() == higher.getNodeType());
+      assert(lower.getEntries().size() != 0);
+      assert(higher.getEntries().size() != 0);
+      assert(Order.isLess(Node.compareEntryKeys(lower.getEntry(0).0, higher.getEntry(0).0)));
 
       lower.addEntry(median);
 

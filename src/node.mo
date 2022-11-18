@@ -133,6 +133,11 @@ module {
       entries_.add(entry);
     };
 
+    /// Set the child at given index
+    public func setChild(idx: Nat, child: Node) {
+      children_.put(idx, child);
+    };
+
     /// Remove the child at the end of the node's children.
     public func popChild() : ?Node {
       children_.removeLast();

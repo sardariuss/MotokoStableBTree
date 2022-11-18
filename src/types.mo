@@ -51,6 +51,7 @@ module {
     getChildrenIdentifiers : () -> [Nat64];
     setChildren: (Buffer<INode>) -> ();
     setEntries: (Buffer<Entry>) -> ();
+    setChild: (Nat, INode) -> ();
     addChild: (INode) -> ();
     addEntry: (Entry) -> ();
     popEntry: () -> ?Entry;

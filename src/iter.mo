@@ -127,9 +127,8 @@ module {
                 return self.next();
               };
 
-              // Take the entry from the node. It's swapped with an empty element to
-              // avoid cloning.
-              let entry = node.swapEntry(Nat64.toNat(entry_idx), ([], []));
+              // Take the entry from the node.
+              let entry = node.getEntry(Nat64.toNat(entry_idx));
 
               // Add to the cursors the next element to be traversed.
               cursors_.push({
