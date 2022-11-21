@@ -13,6 +13,7 @@ module {
   public type BytesConverter<T> = {
     fromBytes: ([Nat8]) -> T;
     toBytes: (T) -> [Nat8];
+    maxSize: () -> Nat32;
   };
 
   public type Memory = {
@@ -96,8 +97,6 @@ module {
 
   public type IBTreeMap<K, V> = {
     getRootAddr : () -> Address;
-    getMaxKeySize : () -> Nat32;
-    getMaxValueSize : () -> Nat32;
     getKeyConverter : () -> BytesConverter<K>;
     getValueConverter : () -> BytesConverter<V>;
     getAllocator : () -> IAllocator;

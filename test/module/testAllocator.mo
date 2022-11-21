@@ -123,7 +123,7 @@ module {
     allocator.deallocate(chunk_addr);
 
     // Try deallocating the free chunk - should trap.
-    // @todo: succeed on trap
+    // TODO: succeed on trap
     //allocator.deallocate(chunk_addr);
   };
 
