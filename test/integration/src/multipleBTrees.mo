@@ -3,6 +3,7 @@ import StableBTreeTypes "../../../src/types";
 import Conversion "../../../src/conversion";
 import Memory "../../../src/memory";
 import MemoryManager "../../../src/memoryManager";
+import BytesConverter "../../../src/bytesConverter";
 
 import Result "mo:base/Result";
 import Array "mo:base/Array";
@@ -13,15 +14,9 @@ import Nat32 "mo:base/Nat32";
 import TrieSet "mo:base/TrieSet";
 import Trie "mo:base/Trie";
 
-actor class MultipleBTrees(args: {
-  max_key_size: Nat32;
-  max_value_size: Nat32;
-}) {
+actor class MultipleBTrees() {
   
   // For convenience: from StableBTree types
-  type Address = StableBTreeTypes.Address;
-  type BytesConverter<T> = StableBTreeTypes.BytesConverter<T>;
-  type Memory = StableBTreeTypes.Memory;
   type InsertError = StableBTreeTypes.InsertError;
   type MemoryId = MemoryManager.MemoryId;
   
@@ -33,15 +28,8 @@ actor class MultipleBTrees(args: {
   type K = Nat32;
   type V = Text;
 
-  let nat32_converter_ = {
-    fromBytes = func(bytes: [Nat8]) : Nat32 { Conversion.bytesToNat32(bytes); };
-    toBytes = func(nat32: Nat32) : [Nat8] { Conversion.nat32ToBytes(nat32); };
-  };
-
-  let text_converter_ = {
-    fromBytes = func(bytes: [Nat8]) : Text { Conversion.bytesToText(bytes); };
-    toBytes = func(text: Text) : [Nat8] { Conversion.textToBytes(text); };
-  };
+  // Arbitrary limitation on text size (in bytes)
+  let MAX_VALUE_SIZE : Nat32 = 100;
 
   // The memory manager
   let memory_manager_ = MemoryManager.init(Memory.STABLE_MEMORY);
@@ -55,10 +43,10 @@ actor class MultipleBTrees(args: {
     switch(Trie.get(identifiers_, { key = btree_id; hash = Nat32.fromNat(Nat8.toNat(btree_id)); }, Nat8.equal)){
       case(null){
         identifiers_ := TrieSet.put(identifiers_, btree_id, Nat32.fromNat(Nat8.toNat(btree_id)), Nat8.equal);
-        StableBTree.init<K, V>(memory, args.max_key_size, args.max_value_size, nat32_converter_, text_converter_);
+        StableBTree.init<K, V>(memory, BytesConverter.NAT32_CONVERTER, BytesConverter.textConverter(MAX_VALUE_SIZE));
       };
       case(_){
-        StableBTree.load<K, V>(memory, nat32_converter_, text_converter_);
+        StableBTree.load<K, V>(memory, BytesConverter.NAT32_CONVERTER, BytesConverter.textConverter(MAX_VALUE_SIZE));
       };
     };
   };

@@ -47,21 +47,19 @@ module {
   /// map is loaded. Otherwise, a new `BTreeMap` instance is created.
   public func init<K, V>(
     memory : Memory,
-    max_key_size : Nat32,
-    max_value_size : Nat32,
     key_converter: BytesConverter<K>,
     value_converter: BytesConverter<V>
   ) : BTreeMap<K, V> {
     if (memory.size() == 0) {
       // Memory is empty. Create a new map.
-      return new(memory, max_key_size, max_value_size, key_converter, value_converter);
+      return new(memory, key_converter, value_converter);
     };
 
     // Check if the magic in the memory corresponds to a BTreeMap.
     let dst = Memory.read(memory, 0, 3);
     if (dst != Blob.toArray(Text.encodeUtf8(MAGIC))) {
       // No BTreeMap found. Create a new instance.
-      return new(memory, max_key_size, max_value_size, key_converter, value_converter);
+      return new(memory, key_converter, value_converter);
     };
     
     // The memory already contains a BTreeMap. Load it.
@@ -81,8 +79,6 @@ module {
   /// See `Allocator` for more details on its own memory layout.
   public func new<K, V>(    
     memory : Memory,
-    max_key_size : Nat32,
-    max_value_size : Nat32,
     key_converter: BytesConverter<K>,
     value_converter: BytesConverter<V>
   ) : BTreeMap<K, V> {
@@ -92,11 +88,13 @@ module {
     let allocator_addr = Constants.ADDRESS_0 + B_TREE_HEADER_SIZE;
     let btree = BTreeMap({
       root_addr = Constants.NULL;
-      max_key_size = max_key_size;
-      max_value_size = max_value_size;
       key_converter = key_converter;
       value_converter = value_converter;
-      allocator = Allocator.initAllocator(memory, allocator_addr, Node.size(max_key_size, max_value_size));
+      allocator = Allocator.initAllocator(
+        memory,
+        allocator_addr,
+        Node.size(key_converter.maxSize(), value_converter.maxSize())
+      );
       length : Nat64 = 0;
       memory = memory;
     });
@@ -116,12 +114,31 @@ module {
     let header = loadBTreeHeader(Constants.NULL, memory);
     let allocator_addr = Constants.ADDRESS_0 + B_TREE_HEADER_SIZE;
 
+    let expected_key_size = header.max_key_size;
+    // TODO: add test case, and allow smaller values.
+    if (key_converter.maxSize() > expected_key_size) {
+      Debug.trap("max_key_size must be <= " # Nat32.toText(expected_key_size));
+    };
+    let expected_value_size = header.max_value_size;
+    if (value_converter.maxSize() > expected_value_size) {
+      Debug.trap("max_value_size must be <= " # Nat32.toText(expected_value_size));
+    };
+
+    // Because we use the maxSize from the key_converter and value_converter to respectively set 
+    // the BTreeHeader max_key_size and max_value_size on save(), we need to update the converter's
+    // maxSize function to use the ones from the loaded header.
     BTreeMap({
       root_addr = header.root_addr;
-      max_key_size = header.max_key_size;
-      max_value_size = header.max_value_size;
-      key_converter = key_converter;
-      value_converter = value_converter;
+      key_converter = {
+        fromBytes = key_converter.fromBytes;
+        toBytes = key_converter.toBytes;
+        maxSize = func() : Nat32 { header.max_key_size; };
+      };
+      value_converter = {
+        fromBytes = value_converter.fromBytes;
+        toBytes = value_converter.toBytes;
+        maxSize = func() : Nat32 { header.max_value_size; };
+      };
       allocator = Allocator.loadAllocator(memory, allocator_addr);
       length = header.length;
       memory = memory;
@@ -169,8 +186,6 @@ module {
 
   type BTreeMapMembers<K, V> = {
     root_addr : Address;
-    max_key_size : Nat32;
-    max_value_size : Nat32;
     key_converter: BytesConverter<K>;
     value_converter: BytesConverter<V>;
     allocator : Allocator;
@@ -183,10 +198,6 @@ module {
     /// Members
     // The address of the root node. If a root node doesn't exist, the address is set to NULL.
     var root_addr_ : Address = members.root_addr;
-    // The maximum size a key can have.
-    let max_key_size_ : Nat32 = members.max_key_size;
-    // The maximum size a value can have.
-    let max_value_size_ : Nat32 = members.max_value_size;
     /// To convert the key into/from bytes.
     let key_converter_ : BytesConverter<K> = members.key_converter;
     /// To convert the value into/from bytes.
@@ -200,8 +211,6 @@ module {
 
     /// Getters
     public func getRootAddr() : Address { root_addr_; };
-    public func getMaxKeySize() : Nat32 { max_key_size_; };
-    public func getMaxValueSize() : Nat32 { max_value_size_; };
     public func getKeyConverter() : BytesConverter<K> { key_converter_; };
     public func getValueConverter() : BytesConverter<V> { value_converter_; };
     public func getAllocator() : Allocator { allocator_; };
@@ -219,18 +228,20 @@ module {
       let value = value_converter_.toBytes(v);
 
       // Verify the size of the key.
-      if (key.size() > Nat32.toNat(max_key_size_)) {
+      let max_key_size = Nat32.toNat(key_converter_.maxSize());
+      if (key.size() > max_key_size) {
         return #err(#KeyTooLarge {
           given = key.size();
-          max = Nat32.toNat(max_key_size_);
+          max = max_key_size;
         });
       };
 
       // Verify the size of the value.
-      if (value.size() > Nat32.toNat(max_value_size_)) {
+      let max_value_size = Nat32.toNat(value_converter_.maxSize());
+      if (value.size() > max_value_size) {
         return #err(#ValueTooLarge {
           given = value.size();
-          max = Nat32.toNat(max_value_size_);
+          max = max_value_size;
         });
       };
 
@@ -959,13 +970,13 @@ module {
         entries = [];
         children = [];
         node_type;
-        max_key_size = max_key_size_;
-        max_value_size = max_value_size_;
+        max_key_size = key_converter_.maxSize();
+        max_value_size = value_converter_.maxSize();
       });
     };
 
     public func loadNode(address: Address) : Node {
-      Node.load(address, memory_, max_key_size_, max_value_size_);
+      Node.load(address, memory_, key_converter_.maxSize(), value_converter_.maxSize());
     };
 
     // Saves the map to memory.
@@ -974,8 +985,8 @@ module {
         magic = Blob.toArray(Text.encodeUtf8(MAGIC));
         version = LAYOUT_VERSION;
         root_addr = root_addr_;
-        max_key_size = max_key_size_;
-        max_value_size = max_value_size_;
+        max_key_size = key_converter_.maxSize();
+        max_value_size = value_converter_.maxSize();
         length = length_;
         _buffer = Array.freeze<Nat8>(Array.init<Nat8>(24, 0));
       };

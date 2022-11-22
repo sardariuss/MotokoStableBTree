@@ -2,21 +2,16 @@ import StableBTree "../../../src/btreemap";
 import StableBTreeTypes "../../../src/types";
 import Conversion "../../../src/conversion";
 import Memory "../../../src/memory";
+import BytesConverter "../../../src/bytesConverter";
 
 import Result "mo:base/Result";
 import Array "mo:base/Array";
 import Buffer "mo:base/Buffer";
 import Iter "mo:base/Iter";
 
-actor class SingleBTree(args: {
-  max_key_size: Nat32;
-  max_value_size: Nat32;
-}) {
+actor class SingleBTree() {
   
   // For convenience: from StableBTree types
-  type Address = StableBTreeTypes.Address;
-  type BytesConverter<T> = StableBTreeTypes.BytesConverter<T>;
-  type Memory = StableBTreeTypes.Memory;
   type InsertError = StableBTreeTypes.InsertError;
   // For convenience: from base module
   type Result<Ok, Err> = Result.Result<Ok, Err>;
@@ -24,6 +19,9 @@ actor class SingleBTree(args: {
   // Arbitrary use of (Nat32, Text) for (key, value) types
   type K = Nat32;
   type V = Text;
+
+  // Arbitrary limitation on text size (in bytes)
+  let MAX_VALUE_SIZE : Nat32 = 100;
 
   let nat32_converter_ = {
     fromBytes = func(bytes: [Nat8]) : Nat32 { Conversion.bytesToNat32(bytes); };
@@ -35,7 +33,11 @@ actor class SingleBTree(args: {
     toBytes = func(text: Text) : [Nat8] { Conversion.textToBytes(text); };
   };
 
-  let btreemap_ = StableBTree.init<K, V>(Memory.STABLE_MEMORY, args.max_key_size, args.max_value_size, nat32_converter_, text_converter_);
+  let btreemap_ = StableBTree.init<K, V>(
+    Memory.STABLE_MEMORY,
+    BytesConverter.NAT32_CONVERTER,
+    BytesConverter.textConverter(MAX_VALUE_SIZE)
+  );
 
   public func getLength() : async Nat64 {
     btreemap_.getLength();

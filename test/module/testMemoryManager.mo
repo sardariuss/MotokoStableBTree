@@ -261,8 +261,8 @@ module {
     growingBeyondCapacityFails(test);
     canWriteAcrossBucketBoundaries(test);
     canWriteAcrossBucketBoundariesWithInterleavingMemories(test);
-    //readingOutOfBoundsShouldTrap(test); // @todo: succeed on trap
-    //writingOutOfBoundsShouldTrap(test); // @todo: succeed on trap
+    //readingOutOfBoundsShouldTrap(test); // TODO: succeed on trap
+    //writingOutOfBoundsShouldTrap(test); // TODO: succeed on trap
     readingZeroBytesFromEmptyMemoryShouldNotTrap(test);
     writingZeroBytesToEmptyMemoryShouldNotTrap(test);
 

@@ -4,6 +4,7 @@ import BTreeMap "../../src/btreemap";
 import Node "../../src/node";
 import Utils "../../src/utils";
 import Conversion "../../src/conversion";
+import BytesConverter "../../src/bytesConverter";
 import TestableItems "testableItems";
 
 import Nat64 "mo:base/Nat64";
@@ -27,19 +28,14 @@ module {
     ([x], []);
   };
 
-  let bytes_passtrough = {
-    fromBytes = func(bytes: [Nat8]) : [Nat8] { bytes; };
-    toBytes = func(bytes: [Nat8]) : [Nat8] { bytes; };
-  };
-
   func initPreservesData(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    var btree = BTreeMap.init<[Nat8], [Nat8]>(mem, 3, 4, bytes_passtrough, bytes_passtrough);
+    var btree = BTreeMap.init<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(3), BytesConverter.bytesPassthrough(4));
     test.equalsInsertResult(btree.insert([1, 2, 3], [4, 5, 6]), #ok(null));
     test.equalsOptBytes(btree.get([1, 2, 3]), ?([4, 5, 6]));
 
     // Reload the btree
-    btree := BTreeMap.init<[Nat8], [Nat8]>(mem, 3, 4, bytes_passtrough, bytes_passtrough);
+    btree := BTreeMap.init<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(3), BytesConverter.bytesPassthrough(4));
 
     // Data still exists.
     test.equalsOptBytes(btree.get([1, 2, 3]), ?([4, 5, 6]));
@@ -47,7 +43,7 @@ module {
 
   func insertGet(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 3, 4, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(3), BytesConverter.bytesPassthrough(4));
 
     test.equalsInsertResult(btree.insert([1, 2, 3], [4, 5, 6]), #ok(null));
     test.equalsOptBytes(btree.get([1, 2, 3]), ?([4, 5, 6]));
@@ -55,7 +51,7 @@ module {
 
   func insertOverwritesPreviousValue(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
 
     test.equalsInsertResult(btree.insert([1, 2, 3], [4, 5, 6]), #ok(null));
     test.equalsInsertResult(btree.insert([1, 2, 3], [7, 8, 9]), #ok(?([4, 5, 6])));
@@ -64,7 +60,7 @@ module {
 
   func insertGetMultiple(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
 
     test.equalsInsertResult(btree.insert([1, 2, 3] , [4, 5, 6]), #ok(null));
     test.equalsInsertResult(btree.insert([4, 5] , [7, 8, 9, 10]), #ok(null));
@@ -76,7 +72,7 @@ module {
 
   func insertOverwriteMedianKeyInFullChildNode(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
 
     for (i in Iter.range(1, 17)) {
       test.equalsInsertResult(btree.insert([Nat8.fromNat(i)], []), #ok(null));
@@ -112,7 +108,7 @@ module {
 
   func insertOverwriteKeyInFullRootNode(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
 
     for (i in Iter.range(1, 11)) {
       test.equalsInsertResult(btree.insert([Nat8.fromNat(i)], []), #ok(null));
@@ -135,7 +131,7 @@ module {
 
   func allocations(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
 
     for (i in Iter.range(0, Nat64.toNat(Node.getCapacity() - 1))) {
       test.equalsInsertResult(btree.insert([Nat8.fromNat(i)], []), #ok(null));
@@ -152,7 +148,7 @@ module {
 
   func allocations2(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
     test.equalsNat64(btree.getAllocator().getNumAllocatedChunks(), 0);
 
     test.equalsInsertResult(btree.insert([], []), #ok(null));
@@ -164,7 +160,7 @@ module {
 
   func insertSameKeyMultiple(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
 
     test.equalsInsertResult(btree.insert([1], [2]), #ok(null));
 
@@ -175,7 +171,7 @@ module {
 
   func insertSplitNode(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
 
     for (i in Iter.range(1, 11)) {
       test.equalsInsertResult(btree.insert([Nat8.fromNat(i)], []), #ok(null));
@@ -196,7 +192,7 @@ module {
 
   func overwriteTest(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
 
     let num_elements = 255;
 
@@ -220,7 +216,7 @@ module {
 
   func insertSplitMultipleNodes(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
 
     for (i in Iter.range(1, 11)) {
       test.equalsInsertResult(btree.insert([Nat8.fromNat(i)], []), #ok(null));
@@ -330,7 +326,7 @@ module {
 
   func removeSimple(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
 
     test.equalsInsertResult(btree.insert([1, 2, 3], [4, 5, 6]), #ok(null));
     test.equalsOptBytes(btree.get([1, 2, 3]), ?([4, 5, 6]));
@@ -340,7 +336,7 @@ module {
 
   func removeCase2aAnd2c(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    var btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    var btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
 
     for (i in Iter.range(1, 11)) {
       test.equalsInsertResult(btree.insert([Nat8.fromNat(i)], []), #ok(null));
@@ -384,7 +380,7 @@ module {
     test.equalsOptBytes(btree.remove([5]), ?([]));
 
     // Reload the btree to verify that we saved it correctly.
-    btree := BTreeMap.load(mem, bytes_passtrough, bytes_passtrough);
+    btree := BTreeMap.load(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
 
     // The result should look like this:
     // [0, 1, 2, 3, 4, 7, 8, 9, 10, 11]
@@ -400,7 +396,7 @@ module {
 
   func removeCase2b(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
 
     for (i in Iter.range(1, 11)) {
       test.equalsInsertResult(btree.insert([Nat8.fromNat(i)], []), #ok(null));
@@ -463,7 +459,7 @@ module {
 
   func removeCase3aRight(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
 
     for (i in Iter.range(1, 11)) {
       test.equalsInsertResult(btree.insert([Nat8.fromNat(i)], []), #ok(null));
@@ -503,7 +499,7 @@ module {
 
   func removeCase3aLeft(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
 
     for (i in Iter.range(1, 11)) {
       test.equalsInsertResult(btree.insert([Nat8.fromNat(i)], []), #ok(null));
@@ -542,7 +538,7 @@ module {
 
   func removeCase3bMergeIntoRight(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    var btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    var btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
 
     for (i in Iter.range(1, 11)) {
       test.equalsInsertResult(btree.insert([Nat8.fromNat(i)], []), #ok(null));
@@ -585,7 +581,7 @@ module {
     test.equalsOptBytes(btree.remove([3]), ?([]));
 
     // Reload the btree to verify that we saved it correctly.
-    btree := BTreeMap.load(mem, bytes_passtrough, bytes_passtrough);
+    btree := BTreeMap.load(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
 
     // The result should look like this:
     //
@@ -614,7 +610,7 @@ module {
 
   func removeCase3bMergeIntoLeft(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    var btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    var btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
 
     for (i in Iter.range(1, 11)) {
       test.equalsInsertResult(btree.insert([Nat8.fromNat(i)], []), #ok(null));
@@ -659,7 +655,7 @@ module {
     test.equalsOptBytes(btree.remove([10]), ?([]));
 
     // Reload the btree to verify that we saved it correctly.
-    btree := BTreeMap.load(mem, bytes_passtrough, bytes_passtrough);
+    btree := BTreeMap.load(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
 
     // The result should look like this:
     //
@@ -677,7 +673,7 @@ module {
 
   func manyInsertions(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    var btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    var btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
 
     for (j in Iter.range(0, 10)) {
       for (i in Iter.range(0, 255)) {
@@ -693,7 +689,7 @@ module {
       };
     };
 
-    btree := BTreeMap.load(mem, bytes_passtrough, bytes_passtrough);
+    btree := BTreeMap.load(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
 
     for (j in Iter.range(0, 10)) {
       for (i in Iter.range(0, 255)) {
@@ -715,7 +711,7 @@ module {
 
   func manyInsertions2(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    var btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    var btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
 
     for (j in Iter.revRange(10, 0)) {
       for (i in Iter.revRange(255, 0)) {
@@ -731,7 +727,7 @@ module {
       };
     };
 
-    btree := BTreeMap.load(mem, bytes_passtrough, bytes_passtrough);
+    btree := BTreeMap.load(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
 
     for (j in Iter.revRange(10, 0)) {
       for (i in Iter.revRange((255, 0))) {
@@ -753,7 +749,7 @@ module {
 
   func reloading(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    var btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    var btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
 
     // The btree is initially empty.
     test.equalsNat64(btree.getLength(), 0);
@@ -766,19 +762,19 @@ module {
 
     // Reload the btree. The element should still be there, and `len()`
     // should still be `1`.
-    btree := BTreeMap.load(mem, bytes_passtrough, bytes_passtrough);
+    btree := BTreeMap.load(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
     test.equalsOptBytes(btree.get([1, 2, 3]), ?([4, 5, 6]));
     test.equalsNat64(btree.getLength(), 1);
     test.equalsBool(btree.isEmpty(), false);
 
     // Remove an element. Length should be zero.
-    btree := BTreeMap.load(mem, bytes_passtrough, bytes_passtrough);
+    btree := BTreeMap.load(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
     test.equalsOptBytes(btree.remove([1, 2, 3]), ?([4, 5, 6]));
     test.equalsNat64(btree.getLength(), 0);
     test.equalsBool(btree.isEmpty(), true);
 
     // Reload. Btree should still be empty.
-    btree := BTreeMap.load(mem, bytes_passtrough, bytes_passtrough);
+    btree := BTreeMap.load(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
     test.equalsOptBytes(btree.get([1, 2, 3]), null);
     test.equalsNat64(btree.getLength(), 0);
     test.equalsBool(btree.isEmpty(), true);
@@ -786,7 +782,7 @@ module {
 
   func len(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
 
     for (i in Iter.range(0, 999)) {
       test.equalsInsertResult(btree.insert(Conversion.nat32ToBytes(Nat32.fromNat(i)), []) , #ok(null));
@@ -805,7 +801,7 @@ module {
 
   func containsKey(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
 
     // Insert even numbers from 0 to 1000.
     for (i in Iter.range(0, 499)) {
@@ -821,7 +817,7 @@ module {
 
   func rangeEmpty(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
 
     // Test prefixes that don't exist in the map.
     test.equalsEntries(Iter.toArray(btree.range([0], null)), []);
@@ -831,7 +827,7 @@ module {
   // Tests the case where the prefix is larger than all the entries in a leaf node.
   func rangeLeafPrefixGreaterThanAllEntries(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
 
     ignore btree.insert([0], []);
 
@@ -842,7 +838,7 @@ module {
   // Tests the case where the prefix is larger than all the entries in an internal node.
   func rangeInternalPrefixGreaterThanAllEntries(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
 
     for (i in Iter.range(1, 12)) {
       test.equalsInsertResult(btree.insert([Nat8.fromNat(i)], []), #ok(null));
@@ -862,7 +858,7 @@ module {
 
   func rangeVariousPrefixes(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
 
     ignore btree.insert([0, 1], []);
     ignore btree.insert([0, 2], []);
@@ -923,7 +919,7 @@ module {
 
   func rangeVariousPrefixes2(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
 
     ignore btree.insert([0, 1], []);
     ignore btree.insert([0, 2], []);
@@ -1032,7 +1028,7 @@ module {
 
   func rangeLarge(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
 
     // Insert 1000 elements with prefix 0 and another 1000 elements with prefix 1.
     for (prefix in Iter.range(0, 1)) {
@@ -1040,7 +1036,7 @@ module {
         // The key is the prefix followed by the integer's encoding.
         // The encoding is big-endian so that the byte representation of the
         // integers are sorted.
-        // @todo: here it is supposed to be in big endian!
+        // TODO: here it is supposed to be in big endian!
         let key = Utils.append([Nat8.fromNat(prefix)], Conversion.nat32ToBytes(Nat32.fromNat(i)));
         test.equalsInsertResult(btree.insert(key, []), #ok(null));
       };
@@ -1050,7 +1046,7 @@ module {
     for (prefix in Iter.range(0, 1)) {
       var i : Nat32 = 0;
       for ((key, _) in btree.range([Nat8.fromNat(prefix)], null)) {
-        // @todo: here it is supposed to be in big endian!
+        // TODO: here it is supposed to be in big endian!
         test.equalsBytes(key, Utils.append([Nat8.fromNat(prefix)], Conversion.nat32ToBytes(i)));
         i += 1;
       };
@@ -1060,7 +1056,7 @@ module {
 
   func rangeVariousPrefixesWithOffset(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
 
     ignore btree.insert([0, 1], []);
     ignore btree.insert([0, 2], []);
@@ -1111,7 +1107,7 @@ module {
 
   func rangeVariousPrefixesWithOffset2(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, 5, 5, bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
 
     ignore btree.insert([0, 1], []);
     ignore btree.insert([0, 2], []);
