@@ -8,38 +8,44 @@ import TestableItems "testableItems";
 import Nat64 "mo:base/Nat64";
 import Nat32 "mo:base/Nat32";
 import Nat8 "mo:base/Nat8";
+import Nat "mo:base/Nat";
 import Iter "mo:base/Iter";
 import Int "mo:base/Int";
+import Order "mo:base/Order";
+import Buffer "mo:base/Buffer";
 
 module {
 
   // For convenience: from base module
   type Iter<T> = Iter.Iter<T>;
-  // For convenience: from types module
-  type Entry = Types.Entry;
+  type Order = Order.Order;
+  type Buffer<T> = Buffer.Buffer<T>;
   // For convenience: from other modules
   type BTreeMap<K, V> = BTreeMap.BTreeMap<K, V>;
   type TestBuffer = TestableItems.TestBuffer;
 
-  // A helper method to succinctly create an entry.
-  func e(x: Nat8) : Entry {
+  // For convenience: from types module
+  type BytesEntry = Types.Entry<[Nat8], [Nat8]>;
+
+  /// Compare two bytes
+  func bytesOrder(a: [Nat8], b: [Nat8]) : Order {
+    Utils.lexicographicallyCompare(a, b, Nat8.compare);
+  };
+
+  /// A helper method to succinctly create an entry.
+  func e(x: Nat8) : BytesEntry {
     ([x], []);
   };
 
-  let bytes_passtrough = {
-    fromBytes = func(bytes: [Nat8]) : [Nat8] { bytes; };
-    toBytes = func(bytes: [Nat8]) : [Nat8] { bytes; };
-  };
-
   func insertGet(test: TestBuffer) {
-    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytesOrder);
 
     test.equalsOptBytes(btree.insert([1, 2, 3], [4, 5, 6]), null);
     test.equalsOptBytes(btree.get([1, 2, 3]), ?([4, 5, 6]));
   };
 
   func insertOverwritesPreviousValue(test: TestBuffer) {
-    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytesOrder);
 
     test.equalsOptBytes(btree.insert([1, 2, 3], [4, 5, 6]), null);
     test.equalsOptBytes(btree.insert([1, 2, 3], [7, 8, 9]), ?([4, 5, 6]));
@@ -47,7 +53,7 @@ module {
   };
 
   func insertGetMultiple(test: TestBuffer) {
-    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytesOrder);
 
     test.equalsOptBytes(btree.insert([1, 2, 3] , [4, 5, 6]), null);
     test.equalsOptBytes(btree.insert([4, 5] , [7, 8, 9, 10]), null);
@@ -58,7 +64,7 @@ module {
   };
 
   func insertOverwriteMedianKeyInFullChildNode(test: TestBuffer) {
-    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytesOrder);
 
     for (i in Iter.range(1, 17)) {
       test.equalsOptBytes(btree.insert([Nat8.fromNat(i)], []), null);
@@ -71,7 +77,7 @@ module {
 
     let root = btree.getRootNode();
     test.equalsNodeType(root.getNodeType(), #Internal);
-    test.equalsEntries(root.getEntries().toArray(), [Node.makeEntry([6], [])]);
+    test.equalsBytesEntries(root.getEntries().toArray(), [([6], [])]);
     test.equalsNat(root.getChildren().size(), 2);
 
     // The right child should now be full, with the median key being "12"
@@ -93,7 +99,7 @@ module {
   };
 
   func insertOverwriteKeyInFullRootNode(test: TestBuffer) {
-    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytesOrder);
 
     for (i in Iter.range(1, 11)) {
       test.equalsOptBytes(btree.insert([Nat8.fromNat(i)], []), null);
@@ -115,7 +121,7 @@ module {
   };
 
   func insertSameKeyMultiple(test: TestBuffer) {
-    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytesOrder);
 
     test.equalsOptBytes(btree.insert([1], [2]), null);
 
@@ -125,7 +131,7 @@ module {
   };
 
   func insertSplitNode(test: TestBuffer) {
-    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytesOrder);
 
     for (i in Iter.range(1, 11)) {
       test.equalsOptBytes(btree.insert([Nat8.fromNat(i)], []), null);
@@ -145,7 +151,7 @@ module {
   };
 
   func overwriteTest(test: TestBuffer) {
-    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytesOrder);
 
     let num_elements = 255;
 
@@ -168,7 +174,7 @@ module {
   };
 
   func insertSplitMultipleNodes(test: TestBuffer) {
-    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytesOrder);
 
     for (i in Iter.range(1, 11)) {
       test.equalsOptBytes(btree.insert([Nat8.fromNat(i)], []), null);
@@ -183,12 +189,12 @@ module {
 
     var root = btree.getRootNode();
     test.equalsNodeType(root.getNodeType(), #Internal);
-    test.equalsEntries(root.getEntries().toArray(), [([6], [])]);
+    test.equalsBytesEntries(root.getEntries().toArray(), [([6], [])]);
     test.equalsNat(root.getChildren().size(), 2);
 
     var child_0 = root.getChildren().get(0);
     test.equalsNodeType(child_0.getNodeType(), #Leaf);
-    test.equalsEntries(
+    test.equalsBytesEntries(
       child_0.getEntries().toArray(),
       [
         ([1], []),
@@ -201,7 +207,7 @@ module {
 
     var child_1 = root.getChildren().get(1);
     test.equalsNodeType(child_1.getNodeType(), #Leaf);
-    test.equalsEntries(
+    test.equalsBytesEntries(
       child_1.getEntries().toArray(),
       [
         ([7], []),
@@ -232,12 +238,12 @@ module {
 
     root := btree.getRootNode();
     test.equalsNodeType(root.getNodeType(), #Internal);
-    test.equalsEntries(root.getEntries().toArray(), [([6], []), ([12], [])]);
+    test.equalsBytesEntries(root.getEntries().toArray(), [([6], []), ([12], [])]);
     test.equalsNat(root.getChildren().size(), 3);
 
     child_0 := root.getChildren().get(0);
     test.equalsNodeType(child_0.getNodeType(), #Leaf);
-    test.equalsEntries(
+    test.equalsBytesEntries(
       child_0.getEntries().toArray(),
       [
         ([1], []),
@@ -250,7 +256,7 @@ module {
 
     child_1 := root.getChildren().get(1);
     test.equalsNodeType(child_1.getNodeType(), #Leaf);
-    test.equalsEntries(
+    test.equalsBytesEntries(
       child_1.getEntries().toArray(),
       [
         ([7], []),
@@ -263,7 +269,7 @@ module {
 
     let child_2 = root.getChildren().get(2);
     test.equalsNodeType(child_2.getNodeType(), #Leaf);
-    test.equalsEntries(
+    test.equalsBytesEntries(
       child_2.getEntries().toArray(),
       [
         ([13], []),
@@ -277,7 +283,7 @@ module {
   };
 
   func removeSimple(test: TestBuffer) {
-    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytesOrder);
 
     test.equalsOptBytes(btree.insert([1, 2, 3], [4, 5, 6]), null);
     test.equalsOptBytes(btree.get([1, 2, 3]), ?([4, 5, 6]));
@@ -286,7 +292,7 @@ module {
   };
 
   func removeCase2aAnd2c(test: TestBuffer) {
-    var btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
+    var btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytesOrder);
 
     for (i in Iter.range(1, 11)) {
       test.equalsOptBytes(btree.insert([Nat8.fromNat(i)], []), null);
@@ -312,16 +318,16 @@ module {
     // [0, 1, 2, 3, 4]   [7, 8, 9, 10, 11]
     var root = btree.getRootNode();
     test.equalsNodeType(root.getNodeType(), #Internal);
-    test.equalsEntries(root.getEntries().toArray(), [e(5)]);
+    test.equalsBytesEntries(root.getEntries().toArray(), [e(5)]);
     test.equalsNat(root.getChildren().size(), 2);
 
     let child_0 = root.getChildren().get(0);
     test.equalsNodeType(child_0.getNodeType(), #Leaf);
-    test.equalsEntries(child_0.getEntries().toArray(), [e(0), e(1), e(2), e(3), e(4)]);
+    test.equalsBytesEntries(child_0.getEntries().toArray(), [e(0), e(1), e(2), e(3), e(4)]);
 
     let child_1 = root.getChildren().get(1);
     test.equalsNodeType(child_1.getNodeType(), #Leaf);
-    test.equalsEntries(child_1.getEntries().toArray(), [e(7), e(8), e(9), e(10), e(11)]);
+    test.equalsBytesEntries(child_1.getEntries().toArray(), [e(7), e(8), e(9), e(10), e(11)]);
 
     // Remove node 5. Triggers case 2c
     test.equalsOptBytes(btree.remove([5]), ?([]));
@@ -329,7 +335,7 @@ module {
     // The result should look like this:
     // [0, 1, 2, 3, 4, 7, 8, 9, 10, 11]
     root := btree.getRootNode();
-    test.equalsEntries(
+    test.equalsBytesEntries(
       root.getEntries().toArray(),
       [e(0), e(1), e(2), e(3), e(4), e(7), e(8), e(9), e(10), e(11)]
     );
@@ -337,7 +343,7 @@ module {
   };
 
   func removeCase2b(test: TestBuffer) {
-    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytesOrder);
 
     for (i in Iter.range(1, 11)) {
       test.equalsOptBytes(btree.insert([Nat8.fromNat(i)], []), null);
@@ -363,16 +369,16 @@ module {
     // [1, 2, 3, 4, 5]   [8, 9, 10, 11, 12]
     var root = btree.getRootNode();
     test.equalsNodeType(root.getNodeType(), #Internal);
-    test.equalsEntries(root.getEntries().toArray(), [e(7)]);
+    test.equalsBytesEntries(root.getEntries().toArray(), [e(7)]);
     test.equalsNat(root.getChildren().size(), 2);
 
     let child_0 = root.getChildren().get(0);
     test.equalsNodeType(child_0.getNodeType(), #Leaf);
-    test.equalsEntries(child_0.getEntries().toArray(), [e(1), e(2), e(3), e(4), e(5)]);
+    test.equalsBytesEntries(child_0.getEntries().toArray(), [e(1), e(2), e(3), e(4), e(5)]);
 
     let child_1 = root.getChildren().get(1);
     test.equalsNodeType(child_1.getNodeType(), #Leaf);
-    test.equalsEntries(child_1.getEntries().toArray(), [e(8), e(9), e(10), e(11), e(12)]);
+    test.equalsBytesEntries(child_1.getEntries().toArray(), [e(8), e(9), e(10), e(11), e(12)]);
 
     // Remove node 7. Triggers case 2.c
     test.equalsOptBytes(btree.remove([7]), ?([]));
@@ -381,7 +387,7 @@ module {
     // [1, 2, 3, 4, 5, 8, 9, 10, 11, 12]
     root := btree.getRootNode();
     test.equalsNodeType(root.getNodeType(), #Leaf);
-    test.equalsEntries(
+    test.equalsBytesEntries(
       root.getEntries().toArray(),
       [
         e(1),
@@ -399,7 +405,7 @@ module {
   };
 
   func removeCase3aRight(test: TestBuffer) {
-    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytesOrder);
 
     for (i in Iter.range(1, 11)) {
       test.equalsOptBytes(btree.insert([Nat8.fromNat(i)], []), null);
@@ -422,20 +428,20 @@ module {
     // [1, 2, 4, 5, 6]   [8, 9, 10, 11, 12]
     let root = btree.getRootNode();
     test.equalsNodeType(root.getNodeType(), #Internal);
-    test.equalsEntries(root.getEntries().toArray(), [([7], [])]);
+    test.equalsBytesEntries(root.getEntries().toArray(), [([7], [])]);
     test.equalsNat(root.getChildren().size(), 2);
 
     let child_0 = root.getChildren().get(0);
     test.equalsNodeType(child_0.getNodeType(), #Leaf);
-    test.equalsEntries(child_0.getEntries().toArray(), [e(1), e(2), e(4), e(5), e(6)]);
+    test.equalsBytesEntries(child_0.getEntries().toArray(), [e(1), e(2), e(4), e(5), e(6)]);
 
     let child_1 = root.getChildren().get(1);
     test.equalsNodeType(child_1.getNodeType(), #Leaf);
-    test.equalsEntries(child_1.getEntries().toArray(), [e(8), e(9), e(10), e(11), e(12)]);
+    test.equalsBytesEntries(child_1.getEntries().toArray(), [e(8), e(9), e(10), e(11), e(12)]);
   };
 
   func removeCase3aLeft(test: TestBuffer) {
-    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytesOrder);
 
     for (i in Iter.range(1, 11)) {
       test.equalsOptBytes(btree.insert([Nat8.fromNat(i)], []), null);
@@ -457,20 +463,20 @@ module {
     // [0, 1, 2, 3, 4]   [6, 7, 9, 10, 11]
     let root = btree.getRootNode();
     test.equalsNodeType(root.getNodeType(), #Internal);
-    test.equalsEntries(root.getEntries().toArray(), [([5], [])]);
+    test.equalsBytesEntries(root.getEntries().toArray(), [([5], [])]);
     test.equalsNat(root.getChildren().size(), 2);
 
     let child_0 = root.getChildren().get(0);
     test.equalsNodeType(child_0.getNodeType(), #Leaf);
-    test.equalsEntries(child_0.getEntries().toArray(), [e(0), e(1), e(2), e(3), e(4)]);
+    test.equalsBytesEntries(child_0.getEntries().toArray(), [e(0), e(1), e(2), e(3), e(4)]);
 
     let child_1 = root.getChildren().get(1);
     test.equalsNodeType(child_1.getNodeType(), #Leaf);
-    test.equalsEntries(child_1.getEntries().toArray(), [e(6), e(7), e(9), e(10), e(11)]);
+    test.equalsBytesEntries(child_1.getEntries().toArray(), [e(6), e(7), e(9), e(10), e(11)]);
   };
 
   func removeCase3bMergeIntoRight(test: TestBuffer) {
-    var btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
+    var btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytesOrder);
 
     for (i in Iter.range(1, 11)) {
       test.equalsOptBytes(btree.insert([Nat8.fromNat(i)], []), null);
@@ -495,16 +501,16 @@ module {
     // [1, 2, 3, 4, 5]   [8, 9, 10, 11, 12]
     var root = btree.getRootNode();
     test.equalsNodeType(root.getNodeType(), #Internal);
-    test.equalsEntries(root.getEntries().toArray(), [([7], [])]);
+    test.equalsBytesEntries(root.getEntries().toArray(), [([7], [])]);
     test.equalsNat(root.getChildren().size(), 2);
 
     let child_0 = root.getChildren().get(0);
     test.equalsNodeType(child_0.getNodeType(), #Leaf);
-    test.equalsEntries(child_0.getEntries().toArray(), [e(1), e(2), e(3), e(4), e(5)]);
+    test.equalsBytesEntries(child_0.getEntries().toArray(), [e(1), e(2), e(3), e(4), e(5)]);
 
     let child_1 = root.getChildren().get(1);
     test.equalsNodeType(child_1.getNodeType(), #Leaf);
-    test.equalsEntries(child_1.getEntries().toArray(), [e(8), e(9), e(10), e(11), e(12)]);
+    test.equalsBytesEntries(child_1.getEntries().toArray(), [e(8), e(9), e(10), e(11), e(12)]);
 
     // Remove node 3. Triggers case 3.b
     test.equalsOptBytes(btree.remove([3]), ?([]));
@@ -514,7 +520,7 @@ module {
     // [1, 2, 4, 5, 7, 8, 9, 10, 11, 12]
     root := btree.getRootNode();
     test.equalsNodeType(root.getNodeType(), #Leaf);
-    test.equalsEntries(
+    test.equalsBytesEntries(
       root.getEntries().toArray(),
       [
         e(1),
@@ -532,7 +538,7 @@ module {
   };
 
   func removeCase3bMergeIntoLeft(test: TestBuffer) {
-    var btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
+    var btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytesOrder);
 
     for (i in Iter.range(1, 11)) {
       test.equalsOptBytes(btree.insert([Nat8.fromNat(i)], []), null);
@@ -559,16 +565,16 @@ module {
     // [1, 2, 3, 4, 5]   [8, 9, 10, 11, 12]
     var root = btree.getRootNode();
     test.equalsNodeType(root.getNodeType(), #Internal);
-    test.equalsEntries(root.getEntries().toArray(), [([7], [])]);
+    test.equalsBytesEntries(root.getEntries().toArray(), [([7], [])]);
     test.equalsNat(root.getChildren().size(), 2);
 
     let child_0 = root.getChildren().get(0);
     test.equalsNodeType(child_0.getNodeType(), #Leaf);
-    test.equalsEntries(child_0.getEntries().toArray(), [e(1), e(2), e(3), e(4), e(5)]);
+    test.equalsBytesEntries(child_0.getEntries().toArray(), [e(1), e(2), e(3), e(4), e(5)]);
 
     let child_1 = root.getChildren().get(1);
     test.equalsNodeType(child_1.getNodeType(), #Leaf);
-    test.equalsEntries(child_1.getEntries().toArray(), [e(8), e(9), e(10), e(11), e(12)]);
+    test.equalsBytesEntries(child_1.getEntries().toArray(), [e(8), e(9), e(10), e(11), e(12)]);
 
     // Remove node 10. Triggers case 3.b where we merge the right into the left.
     test.equalsOptBytes(btree.remove([10]), ?([]));
@@ -578,14 +584,14 @@ module {
     // [1, 2, 3, 4, 5, 7, 8, 9, 11, 12]
     root := btree.getRootNode();
     test.equalsNodeType(root.getNodeType(), #Leaf);
-    test.equalsEntries(
+    test.equalsBytesEntries(
       root.getEntries().toArray(),
       [e(1), e(2), e(3), e(4), e(5), e(7), e(8), e(9), e(11), e(12)]
     );
   };
 
   func manyInsertions(test: TestBuffer) {
-    var btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
+    var btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytesOrder);
 
     for (j in Iter.range(0, 10)) {
       for (i in Iter.range(0, 255)) {
@@ -617,7 +623,7 @@ module {
   };
 
   func manyInsertions2(test: TestBuffer) {
-    var btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
+    var btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytesOrder);
 
     for (j in Iter.revRange(10, 0)) {
       for (i in Iter.revRange(255, 0)) {
@@ -649,7 +655,7 @@ module {
   };
 
   func len(test: TestBuffer) {
-    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytesOrder);
 
     for (i in Iter.range(0, 999)) {
       test.equalsOptBytes(btree.insert(Conversion.nat32ToBytes(Nat32.fromNat(i)), []) , null);
@@ -667,7 +673,7 @@ module {
   };
 
   func containsKey(test: TestBuffer) {
-    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytesOrder);
 
     // Insert even numbers from 0 to 1000.
     for (i in Iter.range(0, 499)) {
@@ -682,29 +688,34 @@ module {
   };
 
   func rangeEmpty(test: TestBuffer) {
-    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<Nat, Nat>(Nat.compare);
 
-    // Test prefixes that don't exist in the map.
-    test.equalsEntries(Iter.toArray(btree.range([0], null)), []);
-    test.equalsEntries(Iter.toArray(btree.range([1, 2, 3, 4], null)), []);
+    // Test entries are not in the map.
+    test.equalsNatEntries(Iter.toArray(btree.range(0, 10)), []);
+    test.equalsNatEntries(Iter.toArray(btree.range(20, 40)), []);
   };
 
-  // Tests the case where the prefix is larger than all the entries in a leaf node.
-  func rangeLeafPrefixGreaterThanAllEntries(test: TestBuffer) {
-    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
+  // Tests the case where the lower bound is greater than all the entries in a leaf node.
+  // Tests the case where the upper bound is lower than all the entries in a leaf node.
+  func rangeBoundsOutsideOfAllEntries(test: TestBuffer) {
+    let btree = BTreeMap.BTreeMap<Nat, Nat>(Nat.compare);
 
-    ignore btree.insert([0], []);
+    ignore btree.insert(5, 5);
 
-    // Test a prefix that's larger than the value in the leaf node. Should be empty.
-    test.equalsEntries(Iter.toArray(btree.range([1], null)), []);
+    // Test a lower bound that's larger than the value in the leaf node. Should be empty.
+    test.equalsNatEntries(Iter.toArray(btree.range(6, 10)), []);
+
+    // Test an upper bound that's lower than the value in the leaf node. Should be empty.
+    test.equalsNatEntries(Iter.toArray(btree.range(1, 4)), []);
   };
 
-  // Tests the case where the prefix is larger than all the entries in an internal node.
-  func rangeInternalPrefixGreaterThanAllEntries(test: TestBuffer) {
-    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
+  // Tests the case where the lower bound is greater than all the entries in an internal node.
+  // Tests the case where the upper bound is lower than all the entries in an internal node.
+  func rangeInternalOutsideOfAllEntries(test: TestBuffer) {
+    let btree = BTreeMap.BTreeMap<Nat, Nat>(Nat.compare);
 
     for (i in Iter.range(1, 12)) {
-      test.equalsOptBytes(btree.insert([Nat8.fromNat(i)], []), null);
+      test.equalsOptNat(btree.insert(i, i), null);
     };
 
     // The result should look like this:
@@ -712,359 +723,278 @@ module {
     //         /   \
     // [1, 2, 3, 4, 5]   [7, 8, 9, 10, 11, 12]
 
-    // Test a prefix that's larger than the value in the internal node.
-    test.equalsEntries(
-      Iter.toArray(btree.range([7], null)),
-      [([7], [])]
+    // Test a lower bound that's greater than the value in the internal node.
+    test.equalsNatEntries(
+      Iter.toArray(btree.range(7, 100)),
+      [(7, 7), (8, 8), (9, 9), (10, 10), (11, 11), (12, 12)]
+    );
+    // Test an upper bound that's lower than the value in the internal node.
+    test.equalsNatEntries(
+      Iter.toArray(btree.range(0, 5)),
+      [(1, 1), (2, 2), (3, 3), (4, 4), (5, 5)]
     );
   };
 
-  func rangeVariousPrefixes(test: TestBuffer) {
-    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
+  func rangeVariousLowerBounds(test: TestBuffer) {
+    let btree = BTreeMap.BTreeMap<Nat, Nat>(Nat.compare);
 
-    ignore btree.insert([0, 1], []);
-    ignore btree.insert([0, 2], []);
-    ignore btree.insert([0, 3], []);
-    ignore btree.insert([0, 4], []);
-    ignore btree.insert([1, 1], []);
-    ignore btree.insert([1, 2], []);
-    ignore btree.insert([1, 3], []);
-    ignore btree.insert([1, 4], []);
-    ignore btree.insert([2, 1], []);
-    ignore btree.insert([2, 2], []);
-    ignore btree.insert([2, 3], []);
-    ignore btree.insert([2, 4], []);
+    ignore btree.insert( 1,  1);
+    ignore btree.insert( 2,  2);
+    ignore btree.insert( 3,  3);
+    ignore btree.insert( 4,  4);
+    ignore btree.insert( 5,  5);
+    ignore btree.insert( 6,  6);
+    ignore btree.insert( 7,  7);
+    ignore btree.insert( 8,  8);
+    ignore btree.insert( 9,  9);
+    ignore btree.insert(10, 10);
+    ignore btree.insert(11, 11);
+    ignore btree.insert(12, 12);
 
     // The result should look like this:
-    //                     [(1, 2)]
+    //                     [( 6)]
     //                     /   \
-    // [(0, 1), (0, 2), (0, 3), (0, 4), (1, 1)]     [(1, 3), (1, 4), (2, 1), (2, 2), (2, 3), (2, 4)]
+    // [( 1)( 2)( 3)( 4)( 5)]     [( 7)( 8)( 9)(10)(11)(12)]
 
     let root = btree.getRootNode();
     test.equalsNodeType(root.getNodeType(), #Internal);
-    test.equalsEntries(root.getEntries().toArray(), [([1, 2], [])]);
+    test.equalsNatEntries(root.getEntries().toArray(), [(6, 6)]);
     test.equalsNat(root.getChildren().size(), 2);
 
-    // Tests a prefix that's smaller than the value in the internal node.
-    test.equalsEntries(
-      Iter.toArray(btree.range([0], null)),
+    // Tests a lower bound that's smaller than the value in the internal node.
+    test.equalsNatEntries(
+      Iter.toArray(btree.range(4, 1000)),
       [
-        ([0, 1], []),
-        ([0, 2], []),
-        ([0, 3], []),
-        ([0, 4], []),
+        (4, 4),
+        (5, 5),
+        (6, 6),
+        (7, 7),
+        (8, 8),
+        (9, 9),
+        (10, 10),
+        (11, 11),
+        (12, 12),
       ]
     );
 
-    // Tests a prefix that crosses several nodes.
-    test.equalsEntries(
-      Iter.toArray(btree.range([1], null)),
+    // Tests a lower bound that is an entry in the internal node.
+    test.equalsNatEntries(
+      Iter.toArray(btree.range(6, 1000)),
       [
-        ([1, 1], []),
-        ([1, 2], []),
-        ([1, 3], []),
-        ([1, 4], []),
+        (6, 6),
+        (7, 7),
+        (8, 8),
+        (9, 9),
+        (10, 10),
+        (11, 11),
+        (12, 12),
       ]
     );
 
-    // Tests a prefix that's larger than the value in the internal node.
-    test.equalsEntries(
-      Iter.toArray(btree.range([2], null)),
+    // Tests a lower bound that's greater than the value in the internal node.
+    test.equalsNatEntries(
+      Iter.toArray(btree.range(10, 1000)),
       [
-        ([2, 1], []),
-        ([2, 2], []),
-        ([2, 3], []),
-        ([2, 4], []),
+        (10, 10),
+        (11, 11),
+        (12, 12),
       ]
     );
   };
 
-  func rangeVariousPrefixes2(test: TestBuffer) {
-    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
+  func rangeVariousUpperBounds(test: TestBuffer) {
+    let btree = BTreeMap.BTreeMap<Nat, Nat>(Nat.compare);
 
-    ignore btree.insert([0, 1], []);
-    ignore btree.insert([0, 2], []);
-    ignore btree.insert([0, 3], []);
-    ignore btree.insert([0, 4], []);
-    ignore btree.insert([1, 2], []);
-    ignore btree.insert([1, 4], []);
-    ignore btree.insert([1, 6], []);
-    ignore btree.insert([1, 8], []);
-    ignore btree.insert([1, 10], []);
-    ignore btree.insert([2, 1], []);
-    ignore btree.insert([2, 2], []);
-    ignore btree.insert([2, 3], []);
-    ignore btree.insert([2, 4], []);
-    ignore btree.insert([2, 5], []);
-    ignore btree.insert([2, 6], []);
-    ignore btree.insert([2, 7], []);
-    ignore btree.insert([2, 8], []);
-    ignore btree.insert([2, 9], []);
+    ignore btree.insert( 1,  1);
+    ignore btree.insert( 2,  2);
+    ignore btree.insert( 3,  3);
+    ignore btree.insert( 4,  4);
+    ignore btree.insert( 5,  5);
+    ignore btree.insert( 6,  6);
+    ignore btree.insert( 7,  7);
+    ignore btree.insert( 8,  8);
+    ignore btree.insert( 9,  9);
+    ignore btree.insert(10, 10);
+    ignore btree.insert(11, 11);
+    ignore btree.insert(12, 12);
 
     // The result should look like this:
-    //                     [(1, 4), (2, 3)]
-    //                     /    |     \
-    // [(0, 1), (0, 2), (0, 3), (0, 4), (1, 2)]     |    [(2, 4), (2, 5), (2, 6), (2, 7), (2, 8), (2, 9)]
-    //                        |
-    //               [(1, 6), (1, 8), (1, 10), (2, 1), (2, 2)]
+    //                     [( 6)]
+    //                     /   \
+    // [( 1)( 2)( 3)( 4)( 5)]     [( 7)( 8)( 9)(10)(11)(12)]
+
     let root = btree.getRootNode();
     test.equalsNodeType(root.getNodeType(), #Internal);
-    test.equalsEntries(
+    test.equalsNatEntries(root.getEntries().toArray(), [(6, 6)]);
+    test.equalsNat(root.getChildren().size(), 2);
+
+    // Tests an upper bound that's smaller than the value in the internal node.
+    test.equalsNatEntries(
+      Iter.toArray(btree.range(0, 4)),
+      [
+        (1, 1),
+        (2, 2),
+        (3, 3),
+        (4, 4),
+      ]
+    );
+
+    // Tests an upper bound that is an entry in the internal node.
+    test.equalsNatEntries(
+      Iter.toArray(btree.range(0, 6)),
+      [
+        (1, 1),
+        (2, 2),
+        (3, 3),
+        (4, 4),
+        (5, 5),
+        (6, 6),
+      ]
+    );
+
+    // Tests a upper bound that's greater than the value in the internal node.
+    test.equalsNatEntries(
+      Iter.toArray(btree.range(0, 10)),
+      [
+        (1, 1),
+        (2, 2),
+        (3, 3),
+        (4, 4),
+        (5, 5),
+        (6, 6),
+        (7, 7),
+        (8, 8),
+        (9, 9),
+        (10, 10),
+      ]
+    );
+  };
+
+  func rangeVariousBounds(test: TestBuffer) {
+    let btree = BTreeMap.BTreeMap<Nat, Nat>(Nat.compare);
+
+    ignore btree.insert( 1,  1);
+    ignore btree.insert( 2,  2);
+    ignore btree.insert( 3,  3);
+    ignore btree.insert( 4,  4);
+    ignore btree.insert( 5,  5);
+    ignore btree.insert( 6,  6);
+    ignore btree.insert( 7,  7);
+    ignore btree.insert( 8,  8);
+    ignore btree.insert( 9,  9);
+    ignore btree.insert(21, 21);
+    ignore btree.insert(22, 22);
+    ignore btree.insert(23, 23);
+    ignore btree.insert(24, 24);
+    ignore btree.insert(25, 25);
+    ignore btree.insert(26, 26);
+    ignore btree.insert(27, 27);
+    ignore btree.insert(28, 28);
+    ignore btree.insert(29, 29);
+
+    // The result should look like this:
+    //                      [( 6)(23)]
+    //                     /    |     \
+    // [( 1)( 2)( 3)( 4)( 5)]   |    [(24)(25)(26)(27)(28)(29)]
+    //                          |
+    //               [( 7)( 8)( 9)(21)(22)]
+    let root = btree.getRootNode();
+    test.equalsNodeType(root.getNodeType(), #Internal);
+    test.equalsNatEntries(
       root.getEntries().toArray(),
-      [([1, 4], []), ([2, 3], [])]
+      [(6, 6), (23, 23)]
     );
     test.equalsNat(root.getChildren().size(), 3);
 
     let child_0 = root.getChildren().get(0);
     test.equalsNodeType(child_0.getNodeType(), #Leaf);
-    test.equalsEntries(
+    test.equalsNatEntries(
       child_0.getEntries().toArray(),
       [
-        ([0, 1], []),
-        ([0, 2], []),
-        ([0, 3], []),
-        ([0, 4], []),
-        ([1, 2], []),
+        (1, 1),
+        (2, 2),
+        (3, 3),
+        (4, 4),
+        (5, 5),
       ]
     );
 
     let child_1 = root.getChildren().get(1);
     test.equalsNodeType(child_1.getNodeType(), #Leaf);
-    test.equalsEntries(
+    test.equalsNatEntries(
       child_1.getEntries().toArray(),
       [
-        ([1, 6], []),
-        ([1, 8], []),
-        ([1, 10], []),
-        ([2, 1], []),
-        ([2, 2], []),
+        ( 7,  7),
+        ( 8,  8),
+        ( 9,  9),
+        (21, 21),
+        (22, 22),
       ]
     );
 
     let child_2 = root.getChildren().get(2);
-    test.equalsEntries(
+    test.equalsNatEntries(
       child_2.getEntries().toArray(),
       [
-        ([2, 4], []),
-        ([2, 5], []),
-        ([2, 6], []),
-        ([2, 7], []),
-        ([2, 8], []),
-        ([2, 9], []),
+        (24, 24),
+        (25, 25),
+        (26, 26),
+        (27, 27),
+        (28, 28),
+        (29, 29),
       ]
     );
 
-    // Tests a prefix that doesn't exist, but is in the middle of the root node.
-    test.equalsEntries(Iter.toArray(btree.range([1, 5], null)), []);
+    // Tests bounds that don't cross any entry, but is in the middle of the root node.
+    test.equalsNatEntries(Iter.toArray(btree.range(10, 20)), []);
 
-    // Tests a prefix that crosses several nodes.
-    test.equalsEntries(
-      Iter.toArray(btree.range([1], null)),
+    // Tests bounds that crosses several nodes
+    test.equalsNatEntries(
+      Iter.toArray(btree.range(5, 10)),
       [
-        ([1, 2], []),
-        ([1, 4], []),
-        ([1, 6], []),
-        ([1, 8], []),
-        ([1, 10], []),
+        (5, 5),
+        (6, 6),
+        (7, 7),
+        (8, 8),
+        (9, 9),
       ]
     );
 
-    // Tests a prefix that starts from a leaf node, then iterates through the root and right
+    // Tests bounds that starts from a leaf node, then iterates through the root and right
     // sibling.
-    test.equalsEntries(
-      Iter.toArray(btree.range([2], null)),
+    test.equalsNatEntries(
+      Iter.toArray(btree.range(22, 26)),
       [
-        ([2, 1], []),
-        ([2, 2], []),
-        ([2, 3], []),
-        ([2, 4], []),
-        ([2, 5], []),
-        ([2, 6], []),
-        ([2, 7], []),
-        ([2, 8], []),
-        ([2, 9], []),
+        (22, 22),
+        (23, 23),
+        (24, 24),
+        (25, 25),
+        (26, 26),
       ]
     );
   };
 
   func rangeLarge(test: TestBuffer) {
-    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<Nat, Nat>(Nat.compare);
 
-    // Insert 1000 elements with prefix 0 and another 1000 elements with prefix 1.
-    for (prefix in Iter.range(0, 1)) {
-      for (i in Iter.range(0, 999)) {
-        // The key is the prefix followed by the integer's encoding.
-        // The encoding is big-endian so that the byte representation of the
-        // integers are sorted.
-        // @todo: here it is supposed to be in big endian!
-        let key = Utils.append([Nat8.fromNat(prefix)], Conversion.nat32ToBytes(Nat32.fromNat(i)));
-        test.equalsOptBytes(btree.insert(key, []), null);
-      };
+    // Insert 1000 elements
+    for (i in Iter.range(0, 999)) {
+      test.equalsOptNat(btree.insert(i, i), null);
     };
 
-    // Getting the range with a prefix should return all 1000 elements with that prefix.
-    for (prefix in Iter.range(0, 1)) {
-      var i : Nat32 = 0;
-      for ((key, _) in btree.range([Nat8.fromNat(prefix)], null)) {
-        // @todo: here it is supposed to be in big endian!
-        test.equalsBytes(key, Utils.append([Nat8.fromNat(prefix)], Conversion.nat32ToBytes(i)));
-        i += 1;
+    // Iterate on elements with a window of size 100, and verify that the range of elements
+    // returned is correct.
+    for (i in Iter.range(0, 899)) {
+      let lower = i;
+      let upper = lower + 100;
+
+      let expected_entries = Buffer.Buffer<(Nat, Nat)>(100);
+      for (inner in Iter.range(lower, upper)){
+        expected_entries.add((inner, inner));
       };
-      test.equalsNat32(i, 1000);
+
+      test.equalsNatEntries(Iter.toArray(btree.range(lower, upper)), expected_entries.toArray());
     };
-  };
-
-  func rangeVariousPrefixesWithOffset(test: TestBuffer) {
-    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
-
-    ignore btree.insert([0, 1], []);
-    ignore btree.insert([0, 2], []);
-    ignore btree.insert([0, 3], []);
-    ignore btree.insert([0, 4], []);
-    ignore btree.insert([1, 1], []);
-    ignore btree.insert([1, 2], []);
-    ignore btree.insert([1, 3], []);
-    ignore btree.insert([1, 4], []);
-    ignore btree.insert([2, 1], []);
-    ignore btree.insert([2, 2], []);
-    ignore btree.insert([2, 3], []);
-    ignore btree.insert([2, 4], []);
-
-    // The result should look like this:
-    //                     [(1, 2)]
-    //                     /   \
-    // [(0, 1), (0, 2), (0, 3), (0, 4), (1, 1)]     [(1, 3), (1, 4), (2, 1), (2, 2), (2, 3), (2, 4)]
-
-    let root = btree.getRootNode();
-    test.equalsNodeType(root.getNodeType(), #Internal);
-    test.equalsEntries(root.getEntries().toArray(), [([1, 2], [])]);
-    test.equalsNat(root.getChildren().size(), 2);
-
-    // Tests a offset that's smaller than the value in the internal node.
-    test.equalsEntries(
-      Iter.toArray(btree.range([0], ?([0]))),
-      [
-        ([0, 1], []),
-        ([0, 2], []),
-        ([0, 3], []),
-        ([0, 4], []),
-      ]
-    );
-
-    // Tests a offset that has a value somewhere in the range of values of an internal node.
-    test.equalsEntries(
-      Iter.toArray(btree.range([1], ?([3]))),
-      [([1, 3], []), ([1, 4], []),]
-    );
-
-    // Tests a offset that's larger than the value in the internal node.
-    test.equalsEntries(
-      Iter.toArray(btree.range([2], ?([5]))),
-      [],
-    );
-  };
-
-  func rangeVariousPrefixesWithOffset2(test: TestBuffer) {
-    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
-
-    ignore btree.insert([0, 1], []);
-    ignore btree.insert([0, 2], []);
-    ignore btree.insert([0, 3], []);
-    ignore btree.insert([0, 4], []);
-    ignore btree.insert([1, 2], []);
-    ignore btree.insert([1, 4], []);
-    ignore btree.insert([1, 6], []);
-    ignore btree.insert([1, 8], []);
-    ignore btree.insert([1, 10], []);
-    ignore btree.insert([2, 1], []);
-    ignore btree.insert([2, 2], []);
-    ignore btree.insert([2, 3], []);
-    ignore btree.insert([2, 4], []);
-    ignore btree.insert([2, 5], []);
-    ignore btree.insert([2, 6], []);
-    ignore btree.insert([2, 7], []);
-    ignore btree.insert([2, 8], []);
-    ignore btree.insert([2, 9], []);
-
-    // The result should look like this:
-    //                     [(1, 4), (2, 3)]
-    //                     /    |     \
-    // [(0, 1), (0, 2), (0, 3), (0, 4), (1, 2)]     |    [(2, 4), (2, 5), (2, 6), (2, 7), (2, 8), (2, 9)]
-    //                        |
-    //               [(1, 6), (1, 8), (1, 10), (2, 1), (2, 2)]
-    let root = btree.getRootNode();
-    test.equalsNodeType(root.getNodeType(), #Internal);
-    test.equalsEntries(
-      root.getEntries().toArray(),
-      [([1, 4], []), ([2, 3], [])]
-    );
-    test.equalsNat(root.getChildren().size(), 3);
-
-    let child_0 = root.getChildren().get(0);
-    test.equalsNodeType(child_0.getNodeType(), #Leaf);
-    test.equalsEntries(
-      child_0.getEntries().toArray(),
-      [
-        ([0, 1], []),
-        ([0, 2], []),
-        ([0, 3], []),
-        ([0, 4], []),
-        ([1, 2], []),
-      ]
-    );
-
-    let child_1 = root.getChildren().get(1);
-    test.equalsNodeType(child_1.getNodeType(), #Leaf);
-    test.equalsEntries(
-      child_1.getEntries().toArray(),
-      [
-        ([1, 6], []),
-        ([1, 8], []),
-        ([1, 10], []),
-        ([2, 1], []),
-        ([2, 2], []),
-      ]
-    );
-
-    let child_2 = root.getChildren().get(2);
-    test.equalsEntries(
-      child_2.getEntries().toArray(),
-      [
-        ([2, 4], []),
-        ([2, 5], []),
-        ([2, 6], []),
-        ([2, 7], []),
-        ([2, 8], []),
-        ([2, 9], []),
-      ]
-    );
-
-    // Tests a offset that crosses several nodes.
-    test.equalsEntries(
-      Iter.toArray(btree.range([1], ?([4]))),
-      [
-        ([1, 4], []),
-        ([1, 6], []),
-        ([1, 8], []),
-        ([1, 10], []),
-      ]
-    );
-
-    // Tests a offset that starts from a leaf node, then iterates through the root and right
-    // sibling.
-    test.equalsEntries(
-      Iter.toArray(btree.range([2], ?([2]))),
-      [
-        ([2, 2], []),
-        ([2, 3], []),
-        ([2, 4], []),
-        ([2, 5], []),
-        ([2, 6], []),
-        ([2, 7], []),
-        ([2, 8], []),
-        ([2, 9], []),
-      ]
-    );
   };
 
   public func run() {
@@ -1091,13 +1021,12 @@ module {
     len(test);
     containsKey(test);
     rangeEmpty(test);
-    rangeLeafPrefixGreaterThanAllEntries(test);
-    rangeInternalPrefixGreaterThanAllEntries(test);
-    rangeVariousPrefixes(test);
-    rangeVariousPrefixes2(test);
+    rangeBoundsOutsideOfAllEntries(test);
+    rangeInternalOutsideOfAllEntries(test);
+    rangeVariousLowerBounds(test);
+    rangeVariousUpperBounds(test);
+    rangeVariousBounds(test);
     rangeLarge(test);
-    rangeVariousPrefixesWithOffset(test);
-    rangeVariousPrefixesWithOffset2(test);
 
     test.run("Test btreemap module");
   };

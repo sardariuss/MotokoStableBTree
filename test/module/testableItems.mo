@@ -28,7 +28,8 @@ module {
   let { run;test;suite; } = Suite;
   // For convenience: from types module
   type NodeType = Types.NodeType;
-  type Entry = Types.Entry;
+  type BytesEntry = Types.Entry<[Nat8], [Nat8]>;
+  type NatEntry = Types.Entry<Nat, Nat>;
 
   func testNat(item: Nat) : Testable.TestableItem<Nat> {
     { display = Nat.toText; equals = Nat.equal; item ; };
@@ -161,6 +162,10 @@ module {
     testOptItem<[Nat8]>(item, bytesToText, bytesEqual);
   };
 
+  func testOptNat(item: ?Nat) : Testable.TestableItem<?Nat> {
+    testOptItem<Nat>(item, Nat.toText, Nat.equal);
+  };
+
   func testNodeType(node_type: NodeType) : Testable.TestableItem<NodeType> {
     {
       display = func(node_type: NodeType) : Text {
@@ -188,27 +193,53 @@ module {
     };
   };
 
-  func entryToText(entry: Entry) : Text {
+  func bytesEntryToText(entry: BytesEntry) : Text {
     "key: " # bytesToText(entry.0) # ", value: " # bytesToText(entry.1);
   };
 
-  func entryEqual(entry1: Entry, entry2: Entry) : Bool {
+  func bytesEntryEqual(entry1: BytesEntry, entry2: BytesEntry) : Bool {
     bytesEqual(entry1.0, entry2.0) and bytesEqual(entry1.1, entry2.1);
   };
 
-  func testEntries(entries: [Entry]) : Testable.TestableItem<[Entry]> {
+  func testBytesEntries(entries: [BytesEntry]) : Testable.TestableItem<[BytesEntry]> {
     {
-      display = func(entries: [Entry]) : Text {
+      display = func(entries: [BytesEntry]) : Text {
         let text_buffer = Buffer.Buffer<Text>(entries.size() + 2);
         text_buffer.add("[");
         for (entry in Array.vals(entries)){
-          text_buffer.add("(" # entryToText(entry) # "), ");
+          text_buffer.add("(" # bytesEntryToText(entry) # "), ");
         };
         text_buffer.add("]");
         Text.join("", text_buffer.vals());
       };
-      equals = func(entries1: [Entry], entries2: [Entry]) : Bool {
-        Array.equal(entries1, entries2, entryEqual);
+      equals = func(entries1: [BytesEntry], entries2: [BytesEntry]) : Bool {
+        Array.equal(entries1, entries2, bytesEntryEqual);
+      };
+      item = entries;
+    };
+  };
+
+  func natEntryToText(entry: NatEntry) : Text {
+    "key: " # Nat.toText(entry.0) # ", value: " # Nat.toText(entry.1);
+  };
+
+  func natEntryEqual(entry1: NatEntry, entry2: NatEntry) : Bool {
+    Nat.equal(entry1.0, entry2.0) and Nat.equal(entry1.1, entry2.1);
+  };
+
+  func testNatEntries(entries: [NatEntry]) : Testable.TestableItem<[NatEntry]> {
+    {
+      display = func(entries: [NatEntry]) : Text {
+        let text_buffer = Buffer.Buffer<Text>(entries.size() + 2);
+        text_buffer.add("[");
+        for (entry in Array.vals(entries)){
+          text_buffer.add("(" # natEntryToText(entry) # "), ");
+        };
+        text_buffer.add("]");
+        Text.join("", text_buffer.vals());
+      };
+      equals = func(entries1: [NatEntry], entries2: [NatEntry]) : Bool {
+        Array.equal(entries1, entries2, natEntryEqual);
       };
       item = entries;
     };
@@ -292,6 +323,10 @@ module {
       equals<?[Nat8]>("equalsOptBytes", actual, testOptBytes(expected));
     };
 
+    public func equalsOptNat(actual: ?Nat, expected: ?Nat){
+      equals<?Nat>("equalsOptNat", actual, testOptNat(expected));
+    };
+
     public func equalsNodeType(actual: NodeType, expected: NodeType){
       equals<NodeType>("equalsNodeType", actual, testNodeType(expected));
     };
@@ -300,8 +335,12 @@ module {
       equals<Bool>("equalsBool", actual, testBool(expected));
     };
 
-    public func equalsEntries(actual: [Entry], expected: [Entry]){
-      equals<[Entry]>("equalsEntries", actual, testEntries(expected));
+    public func equalsBytesEntries(actual: [BytesEntry], expected: [BytesEntry]){
+      equals<[BytesEntry]>("equalsBytesEntries", actual, testBytesEntries(expected));
+    };
+
+    public func equalsNatEntries(actual: [NatEntry], expected: [NatEntry]){
+      equals<[NatEntry]>("equalsNatEntries", actual, testNatEntries(expected));
     };
 
     public func equalsOptArrayNat16(actual: ?[Nat16], expected: ?[Nat16]){

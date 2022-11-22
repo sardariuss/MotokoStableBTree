@@ -1,23 +1,22 @@
 import Types "types";
 import Node "node";
-import Constants "constants";
-import Utils "utils";
 
 import Nat64 "mo:base/Nat64";
 import Debug "mo:base/Debug";
 import Stack "mo:base/Stack";
 import Array "mo:base/Array";
-import Nat8 "mo:base/Nat8";
 import Order "mo:base/Order";
+import Option "mo:base/Option";
 
 module {
 
   // For convenience: from types module
   type IBTreeMap<K, V> = Types.IBTreeMap<K, V>;
   type Index = Types.Index;
-  type Cursor = Types.Cursor;
+  type Cursor<K, V> = Types.Cursor<K, V>;
+  type Order = Order.Order;
   // For convenience: from node module
-  type Node = Node.Node;
+  type Node<K, V> = Node.Node<K, V>;
 
   public func new<K, V>(map: IBTreeMap<K, V>) : Iter<K, V>{
     // Initialize the cursors with the root of the map.
@@ -31,8 +30,8 @@ module {
     Iter({
       map;
       cursors = [{node; next;}];
-      prefix = null;
-      offset = null;
+      lower_bound = null;
+      upper_bound = null;
     });
   };
 
@@ -40,34 +39,25 @@ module {
     Iter({
       map;
       cursors = [];
-      prefix = null;
-      offset = null;
+      lower_bound = null;
+      upper_bound = null;
     });
   };
 
-  public func newWithPrefix<K, V>(map: IBTreeMap<K, V>, prefix: [Nat8], cursors: [Cursor]) : Iter<K, V>{
+  public func newWithBounds<K, V>(map: IBTreeMap<K, V>, cursors: [Cursor<K, V>], lower_bound: K, upper_bound: K) : Iter<K, V>{
     Iter({
       map;
       cursors;
-      prefix = ?prefix;
-      offset = null;
-    });
-  };
-
-  public func newWithPrefixAndOffset<K, V>(map: IBTreeMap<K, V>, prefix: [Nat8], offset: [Nat8], cursors: [Cursor]) : Iter<K, V>{
-    Iter({
-      map;
-      cursors;
-      prefix = ?prefix;
-      offset = ?offset;
+      lower_bound = ?lower_bound;
+      upper_bound = ?upper_bound;
     });
   };
 
   type IterVariables<K, V> = {
     map: IBTreeMap<K, V>;
-    cursors: [Cursor];
-    prefix: ?[Nat8];
-    offset: ?[Nat8];
+    cursors: [Cursor<K, V>];
+    lower_bound: ?K;
+    upper_bound: ?K;
   };
 
   /// An iterator over the entries of a [`BTreeMap`].
@@ -78,18 +68,27 @@ module {
     let map_: IBTreeMap<K, V> = variables.map;
 
     // A stack of cursors indicating the current position in the tree.
-    var cursors_ = Stack.Stack<Cursor>();
+    var cursors_ = Stack.Stack<Cursor<K, V>>();
     for (cursor in Array.vals(variables.cursors)) {
       cursors_.push(cursor);
     };
 
-    // An optional prefix that the keys of all the entries returned must have.
-    // Iteration stops as soon as it runs into a key that doesn't have this prefix.
-    let prefix_: ?[Nat8] = variables.prefix;
+    // Optional lower bound.
+    // Iteration traps if it ever runs into a key that is lower than the lower bound.
+    let lower_bound_ = variables.lower_bound;
 
-    // An optional offset to begin iterating from in the keys with the same prefix.
-    // Used only in the case that prefix is also set.
-    let offset_: ?[Nat8] = variables.offset;
+    // Optional upper bound.
+    // Iteration stops as soon as it runs into a key that is greater than the upper bound.
+    let upper_bound_ = variables.upper_bound;
+
+    // Verify the lower bound is not greater than the upper bound.
+    Option.iterate(lower_bound_, func(lowest: K) {
+      Option.iterate(upper_bound_, func(greatest: K) {
+        if (Order.isGreater(map_.getKeyOrder()(lowest, greatest))){
+          Debug.trap("The lower bound cannot be greater than the upper bound.");
+        };
+      });
+    });
 
     public func next() : ?(K, V) {
       switch(cursors_.pop()) {
@@ -101,7 +100,7 @@ module {
               };
               
               // After iterating on the child, iterate on the next _entry_ in this node.
-              // The entry immediately after the child has the same index as the child's.
+              // The entry immediately after the child has the same index as the child's. 
               cursors_.push({
                 node;
                 next = #Entry(child_idx);
@@ -141,30 +140,24 @@ module {
                 node;
               });
 
-              // If there's a prefix, verify that the key has that given prefix.
+              // Verify the key is greater than or equal to the lower bound, if any.
+              Option.iterate(lower_bound_, func(lowest: K) {
+                assert(not Order.isLess(map_.getKeyOrder()(entry.0, lowest)));
+              });
+
+              // Verify that the key is lower than or equal to the upper bound, if any.
               // Otherwise iteration is stopped.
-              switch(prefix_){
+              switch(upper_bound_){
                 case(null) {};
-                case(?prefix){
-                  if (not Utils.isPrefixOf(prefix, entry.0, Nat8.equal)){
-                    // Clear all cursors to avoid needless work in subsequent calls.
-                    cursors_ := Stack.Stack<Cursor>();
+                case(?greatest) {
+                  if (Order.isGreater(map_.getKeyOrder()(entry.0, greatest))){
+                    cursors_ := Stack.Stack<Cursor<K, V>>();
                     return null;
-                  } else switch(offset_) {
-                    case(null) {};
-                    case(?offset){
-                      let prefix_with_offset = Utils.toBuffer<Nat8>(prefix);
-                      prefix_with_offset.append(Utils.toBuffer<Nat8>(offset));
-                      // Clear all cursors to avoid needless work in subsequent calls.
-                      if (Order.isLess(Node.compareEntryKeys(entry.0, prefix_with_offset.toArray()))){  
-                        cursors_ := Stack.Stack<Cursor>();
-                        return null;
-                      };
-                    };
                   };
                 };
               };
-              return ?(map_.getKeyConverter().fromBytes(entry.0), map_.getValueConverter().fromBytes(entry.1));
+
+              return ?(entry.0, entry.1);
             };
           };
         };
