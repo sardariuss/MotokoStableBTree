@@ -1,5 +1,4 @@
 import Types "types";
-import Conversion "conversion";
 import Node "node";
 import Constants "constants";
 import Iter "iter";
@@ -10,46 +9,41 @@ import Debug "mo:base/Debug";
 import Nat64 "mo:base/Nat64";
 import Order "mo:base/Order";
 import Buffer "mo:base/Buffer";
-import Nat8 "mo:base/Nat8";
 
 module {
 
+  // For convenience: from base module
+  type Order = Order.Order;
   // For convenience: from types module
-  type BytesConverter<T> = Types.BytesConverter<T>;
   type NodeType = Types.NodeType;
-  type Entry = Types.Entry;
-  type Cursor = Types.Cursor;
+  type Entry<K, V> = Types.Entry<K, V>;
+  type Cursor<K, V> = Types.Cursor<K, V>;
   // For convenience: from node module
-  type Node = Node.Node;
+  type Node<K, V> = Node.Node<K, V>;
   // For convenience: from iter module
   type Iter<K, V> = Iter.Iter<K, V>;
 
-  public class BTreeMap<K, V>(key_converter:  BytesConverter<K>, value_converter: BytesConverter<V>) = self {
+  public class BTreeMap<K, V>(key_order: (K, K) -> Order) = self {
     
     /// Members
     // The root node.
-    var root_node_ = Node.Node(#Leaf, 0);
-    /// To convert the key into/from bytes.
-    let key_converter_ = key_converter;
-    /// To convert the value into/from bytes.
-    let value_converter_ = value_converter;
+    var root_node_ = Node.Node<K, V>(key_order, #Leaf, 0);
     // The number of elements in the map.
     var length_ : Nat64 = 0;
     // The identifier given to the last created node.
     var last_identifier_ : Nat64 = 0;
+    // The ordering of the keys
+    let key_order_ : (K, K) -> Order = key_order;
 
     /// Getters
-    public func getRootNode() : Node { root_node_; };
-    public func getKeyConverter() : BytesConverter<K> { key_converter_; };
-    public func getValueConverter() : BytesConverter<V> { value_converter_; };
+    public func getRootNode() : Node<K, V> { root_node_; };
     public func getLength() : Nat64 { length_; };
+    public func getKeyOrder() : (K, K) -> Order { key_order_; };
 
     /// Inserts a key-value pair into the map.
     ///
     /// The previous value of the key, if present, is returned.
-    public func insert(k: K, v: V) : ?V {
-      let key = key_converter_.toBytes(k);
-      let value = value_converter_.toBytes(v);
+    public func insert(key: K, value: V) : ?V {
 
       let root = do {
 
@@ -60,7 +54,7 @@ module {
           case(#ok(idx)){
             // The key exists. Overwrite it and return the previous value.
             let (_, previous_value) = root.swapEntry(idx, (key, value));
-            return ?(value_converter_.fromBytes(previous_value));
+            return ?previous_value;
           };
           case(#err(_)){
             // If the root is full, we need to introduce a new node as the root.
@@ -88,13 +82,11 @@ module {
           };
         };
       };
-      Option.map<[Nat8], V>(
-        insertNonFull(root, key, value),
-        func(bytes: [Nat8]) : V { value_converter_.fromBytes(bytes); });
+      insertNonFull(root, key, value);
     };
 
     // Inserts an entry into a node that is *not full*.
-    func insertNonFull(node: Node, key: [Nat8], value: [Nat8]) : ?[Nat8] {
+    func insertNonFull(node: Node<K, V>, key: K, value: V) : ?V {
       // We're guaranteed by the caller that the provided node is not full.
       assert(not node.isFull());
 
@@ -178,7 +170,7 @@ module {
     //                                 / \
     //                [ N  O  P  Q  R ]   [ T  U  V  W  X ]
     //
-    func splitChild(node: Node, full_child_idx: Nat) {
+    func splitChild(node: Node<K, V>, full_child_idx: Nat) {
       // The node must not be full.
       assert(not node.isFull());
 
@@ -191,10 +183,10 @@ module {
       assert(sibling.getNodeType() == full_child.getNodeType());
 
       // Move the values above the median into the new sibling.
-      sibling.setEntries(Utils.splitOff<Entry>(full_child.getEntries(), Constants.B));
+      sibling.setEntries(Utils.splitOff<Entry<K, V>>(full_child.getEntries(), Constants.B));
 
       if (full_child.getNodeType() == #Internal) {
-        sibling.setChildren(Utils.splitOff<Node>(full_child.getChildren(), Constants.B));
+        sibling.setChildren(Utils.splitOff<Node<K, V>>(full_child.getChildren(), Constants.B));
       };
 
       // Add sibling as a new child in the node. 
@@ -213,13 +205,10 @@ module {
 
     /// Returns the value associated with the given key if it exists.
     public func get(key: K) : ?V {
-      Option.map<[Nat8], V>(
-        getHelper(root_node_, key_converter_.toBytes(key)),
-        func(bytes: [Nat8]) : V { value_converter_.fromBytes(bytes); }
-      );
+      getHelper(root_node_, key);
     };
 
-    func getHelper(node: Node, key: [Nat8]) : ?[Nat8] {
+    func getHelper(node: Node<K, V>, key: K) : ?V {
       switch(node.getKeyIdx(key)){
         case(#ok(idx)) { ?node.getEntry(idx).1; };
         case(#err(idx)) {
@@ -246,14 +235,11 @@ module {
 
     /// Removes a key from the map, returning the previous value at the key if it exists.
     public func remove(key: K) : ?V {
-      Option.map<[Nat8], V>(
-        removeHelper(root_node_, key_converter_.toBytes(key)),
-        func(bytes: [Nat8]) : V { value_converter_.fromBytes(bytes); }
-      );
+      removeHelper(root_node_, key);
     };
 
     // A helper method for recursively removing a key from the B-tree.
-    func removeHelper(node: Node, key: [Nat8]) : ?[Nat8] {
+    func removeHelper(node: Node<K, V>, key: K) : ?V {
 
       if(node.getIdentifier() != root_node_.getIdentifier()){
         // We're guaranteed that whenever this method is called the number
@@ -597,72 +583,45 @@ module {
       Iter.new<K, V>(self);
     };
 
-    /// Returns an iterator over the entries in the map where keys begin with the given `prefix`.
-    /// If the optional `offset` is set, the iterator returned will start from the entry that
-    /// contains this `offset` (while still iterating over all remaining entries that begin
-    /// with the given `prefix`).
-    public func range(prefix: [Nat8], offset: ?[Nat8]) : Iter<K, V> {
-
+    /// Returns an iterator over the entries in the map where keys are greater than or equal
+    /// to `lower_bound`, and inferior than or equal to `upper_bound`.
+    public func range(lower_bound: K, upper_bound: K) : Iter<K, V> {
+      
       var node = root_node_;
-      let cursors : Buffer.Buffer<Cursor> = Buffer.Buffer<Cursor>(0);
+      let cursors = Buffer.Buffer<Cursor<K, V>>(0);
 
       loop {
-        // Look for the prefix in the node.
-        let pivot = Utils.toBuffer<Nat8>(prefix);
-        switch(offset) {
-          case(null) {};
-          case(?offset){
-            pivot.append(Utils.toBuffer(offset));
-          };
-        };
-        let idx = switch(node.getKeyIdx(pivot.toArray())){
+        let idx = switch(node.getKeyIdx(lower_bound)){
           case(#err(idx)) { idx; };
           case(#ok(idx)) { idx; };
         };
 
-        // If `prefix` is a key in the node, then `idx` would return its
-        // location. Otherwise, `idx` is the location of the next key in
-        // lexicographical order.
+        // If the key is the lower bound, then `idx` would return its
+        // location. Otherwise, `idx` is the location of the next slightly
+        // greater key.
 
-        // Load the next child of the node to visit if it exists.
-        // This is done first to avoid cloning the node.
-        let child = switch(node.getNodeType()) {
-          case(#Internal) {
-            // Note that loading a child node cannot fail since
-            // len(children) = len(entries) + 1
-            ?node.getChild(idx);
-          };
-          case(#Leaf) { null; };
-        };
-
-        // If the prefix is found in the node, then add a cursor starting from its index.
-        if (idx < node.getEntries().size() and Utils.isPrefixOf(prefix, node.getEntry(idx).0, Nat8.equal)){
+        // If key is lower than or equal to the upper bound, then add a cursor starting from its index.
+        if (idx < node.getEntries().size() and not(Order.isGreater(key_order_(node.getEntry(idx).0, upper_bound)))){
           cursors.add({
             node;
             next = #Entry(Nat64.fromNat(idx));
           });
         };
 
-        switch(child) {
-          case(null) {
-            // Leaf node. Return an iterator with the found cursors.
-            switch(offset) {
-              case(?offset) {
-                return Iter.newWithPrefixAndOffset(
-                  self, prefix, offset, cursors.toArray()
-                );
-              };
-              case(null) {
-                return Iter.newWithPrefix(self, prefix, cursors.toArray());
-              };
-            };
+        // Load the next child of the node to visit if it exists.
+        switch(node.getNodeType()) {
+          case(#Internal) {
+            // Note that loading a child node cannot fail since
+            // len(children) = len(entries) + 1
+            node := node.getChild(idx);
           };
-          case(?child) {
-            // Iterate over the child node.
-            node := child;
+          case(#Leaf) { 
+            // Leaf node. Return an iterator with the found cursors.
+            return Iter.newWithBounds(self, cursors.toArray(), lower_bound, upper_bound);
           };
         };
       };
+
     };
 
     // Merges one node (`higher`) into another node (`lower`), along with a median entry.
@@ -676,13 +635,13 @@ module {
     //
     // Output:
     //   [1, 2, 3, 4, 5, 6, 7] (stored in the `lower` node)
-    func merge(lower: Node, higher: Node, median: Entry) : Node {
+    func merge(lower: Node<K, V>, higher: Node<K, V>, median: Entry<K, V>) : Node<K, V> {
       let original_size = higher.getChildren().size();
 
       assert(lower.getNodeType() == higher.getNodeType());
       assert(lower.getEntries().size() != 0);
       assert(higher.getEntries().size() != 0);
-      assert(Order.isLess(Node.compareEntryKeys(lower.getEntry(0).0, higher.getEntry(0).0)));
+      assert(Order.isLess(key_order_(lower.getEntry(0).0, higher.getEntry(0).0)));
 
       lower.addEntry(median);
 
@@ -694,9 +653,9 @@ module {
       lower;
     };
 
-    func createNode(node_type: NodeType) : Node {
+    func createNode(node_type: NodeType) : Node<K, V> {
       last_identifier_ := last_identifier_ + 1;
-      Node.Node(node_type, last_identifier_);
+      Node.Node(key_order_, node_type, last_identifier_);
     };
 
   };

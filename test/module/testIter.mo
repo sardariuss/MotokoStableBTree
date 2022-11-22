@@ -1,25 +1,29 @@
 import BTreeMap "../../src/btreemap";
 import Node "../../src/node";
+import Utils "../../src/utils";
 import TestableItems "testableItems";
 
 import Iter "mo:base/Iter";
 import Nat64 "mo:base/Nat64";
 import Nat8 "mo:base/Nat8";
 import Int "mo:base/Int";
+import Order "mo:base/Order";
 
 module {
-
+  
+  // For convenience: from base modules
+  type Order = Order.Order;
   // For convenience: from other modules
   type TestBuffer = TestableItems.TestBuffer;
 
-  let bytes_passtrough = {
-      fromBytes = func(bytes: [Nat8]) : [Nat8] { bytes; };
-      toBytes = func(bytes: [Nat8]) : [Nat8] { bytes; };
-    };
-
+  /// Compare two bytes
+  func bytesOrder(a: [Nat8], b: [Nat8]) : Order {
+    Utils.lexicographicallyCompare(a, b, Nat8.compare);
+  };
+  
   func iterateLeaf(test: TestBuffer) {
     
-    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytesOrder);
 
     for (i in Iter.range(0, Nat64.toNat(Node.getCapacity() - 1))){
       ignore btree.insert([Nat8.fromNat(i)], [Nat8.fromNat(i + 1)]);
@@ -37,7 +41,7 @@ module {
 
   func iterateChildren(test: TestBuffer) {
 
-    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytes_passtrough, bytes_passtrough);
+    let btree = BTreeMap.BTreeMap<[Nat8], [Nat8]>(bytesOrder);
 
     // Insert the elements in reverse order.
     for (i in Iter.revRange(99, 0)){
