@@ -23,16 +23,6 @@ actor class SingleBTree() {
   // Arbitrary limitation on text size (in bytes)
   let MAX_VALUE_SIZE : Nat32 = 100;
 
-  let nat32_converter_ = {
-    fromBytes = func(bytes: [Nat8]) : Nat32 { Conversion.bytesToNat32(bytes); };
-    toBytes = func(nat32: Nat32) : [Nat8] { Conversion.nat32ToBytes(nat32); };
-  };
-
-  let text_converter_ = {
-    fromBytes = func(bytes: [Nat8]) : Text { Conversion.bytesToText(bytes); };
-    toBytes = func(text: Text) : [Nat8] { Conversion.textToBytes(text); };
-  };
-
   let btreemap_ = StableBTree.init<K, V>(
     Memory.STABLE_MEMORY,
     BytesConverter.NAT32_CONVERTER,

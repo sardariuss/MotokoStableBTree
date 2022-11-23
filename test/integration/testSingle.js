@@ -4,6 +4,7 @@ import fetch from "node-fetch";
 import { test } from "tape";
 // From https://stackoverflow.com/a/74018376/6021706
 import { createRequire } from "module";          
+import { assert } from "console";
 const require = createRequire(import.meta.url);
 const canister_ids = require("./.dfx/local/canister_ids.json");
 
@@ -23,74 +24,80 @@ const single_b_tree = Actor.createActor(idlFactory, {
   canisterId: canister_ids["singleBTree"]["local"]
 });
 
-let NUM_INSERTIONS = 5000;
+const NUM_INSERTIONS = 5000;
 
-test('random_insertions', async function (t) {
-  // Remove previous entries in the btree if any
-  await single_b_tree.empty();
-  t.equal(await single_b_tree.getLength(), 0n);
+const MAX_BTREE_ITERATIONS = 1000;
 
-  // Insert NUM_INSERTIONS random entries
-  let random_keys = [];
-  for (var i=0; i<NUM_INSERTIONS; i++){
-    let random = Math.random();
-    let power = Math.trunc(Math.random() * 32);
-    let random_nat32 = Math.trunc(random * 2 ** power);
-    random_keys.push(random_nat32);
-  };
+const NUM_CALLS = NUM_INSERTIONS / MAX_BTREE_ITERATIONS;
 
-  const entries = random_keys.map(key => [key, key.toString()]);
+const btree_insert_test = async (t, keys) => {
+  // Verify the btree is empty
+  if (await single_b_tree.getLength() != 0n){
+    throw new FatalError("The btree is not empty");
+  }
 
-  // Verify the insertion works
-  t.ok(await single_b_tree.insertMany(entries));
+  const entries = keys.map(key => [key, key.toString()]);
+  const unique_keys = [...new Set(keys)];
 
-  const unique_keys = [...new Set(random_keys)];
+  var insert_result = true;
 
+  // Insert entries in the btree
+  for (var i=0; i<NUM_CALLS; i++){
+    const lower_bound = i * MAX_BTREE_ITERATIONS;
+    const upper_bound = (i + 1) * MAX_BTREE_ITERATIONS;
+    const sub_entries = entries.filter((value, index) => index >= lower_bound && index < upper_bound);
+    insert_result &= ((await single_b_tree.insertMany(sub_entries)).err === undefined);
+  }
+  
+  // Verify the insertions worked
+  t.ok(insert_result);
+  
   // Verify the length of the btree
   t.equal(await single_b_tree.getLength(), BigInt(unique_keys.length));
 
-  // Verify retrieving each value works (use join to compare array's content)
-  t.equal((await single_b_tree.getMany(unique_keys)).join(""), unique_keys.map(key => key.toString()).join(""));
+  var get_result = true;
+
+  // Retrieve entries in the btree
+  for (var i=0; i<NUM_CALLS; i++){
+    const lower_bound = i * MAX_BTREE_ITERATIONS;
+    const upper_bound = (i + 1) * MAX_BTREE_ITERATIONS;
+    const sub_keys = unique_keys.filter((value, index) => index >= lower_bound && index < upper_bound);
+    // Use join to compare array's content
+    get_result &= ((await single_b_tree.getMany(sub_keys)).join("") == sub_keys.map(key => key.toString()).join(""));
+  }
+
+  // Verify retrieving each value worked
+  t.ok(get_result);
+
+  // Empty the btree
+  await single_b_tree.empty();
+};
+
+test('random_insertions', async function (t) {
+  // Create NUM_INSERTIONS random entries
+  let keys = [];
+  for (var i=0; i<NUM_INSERTIONS; i++){
+    let power = Math.trunc(Math.random() * 32);
+    let random_nat32 = Math.trunc(Math.random() * 2 ** power);
+    keys.push(random_nat32);
+  }
+  await btree_insert_test(t, keys);
 });
 
 test('increasing_insertions', async function (t) {
-  // Remove previous entries in the btree if any
-  await single_b_tree.empty();
-  t.equal(await single_b_tree.getLength(), 0n);
-
   // Insert NUM_INSERTIONS increasing entries
-  let entries = [];
+  let keys = [];
   for (var i=0; i<NUM_INSERTIONS; i++){
-    entries.push([i, i.toString()]);
+    keys.push(i);
   };
-  let keys = entries.map(entry => entry[0]);
-  let values = entries.map(entry => entry[1]);
-
-  // Verify the insertion works
-  t.ok(await single_b_tree.insertMany(entries));
-  // Verify the length of the btree
-  t.equal(await single_b_tree.getLength(), BigInt(entries.length));
-  // Verify retrieving each value works (use join to compare array's content)
-  t.equal((await single_b_tree.getMany(keys)).join(""), values.join(""));
+  await btree_insert_test(t, keys);
 });
 
 test('decreasing_insertions', async function (t) {
-  // Remove previous entries in the btree if any
-  await single_b_tree.empty();
-  t.equal(await single_b_tree.getLength(), 0n);
-
   // Insert NUM_INSERTIONS decreasing entries
-  let entries = [];
+  let keys = [];
   for (var i=(NUM_INSERTIONS-1); i >= 0; i--){
-    entries.push([i, i.toString()]);
+    keys.push(i);
   };
-  let keys = entries.map(entry => entry[0]);
-  let values = entries.map(entry => entry[1]);
-
-  // Verify the insertion works
-  t.ok(await single_b_tree.insertMany(entries));
-  // Verify the length of the btree
-  t.equal(await single_b_tree.getLength(), BigInt(entries.length));
-  // Verify retrieving each value works (use join to compare array's content)
-  t.equal((await single_b_tree.getMany(keys)).join(""), values.join(""));
+  await btree_insert_test(t, keys);
 });
