@@ -1036,7 +1036,6 @@ module {
         // The key is the prefix followed by the integer's encoding.
         // The encoding is big-endian so that the byte representation of the
         // integers are sorted.
-        // TODO: here it is supposed to be in big endian!
         let key = Utils.append([Nat8.fromNat(prefix)], Conversion.nat32ToBytes(Nat32.fromNat(i)));
         test.equalsInsertResult(btree.insert(key, []), #ok(null));
       };
@@ -1046,7 +1045,6 @@ module {
     for (prefix in Iter.range(0, 1)) {
       var i : Nat32 = 0;
       for ((key, _) in btree.range([Nat8.fromNat(prefix)], null)) {
-        // TODO: here it is supposed to be in big endian!
         test.equalsBytes(key, Utils.append([Nat8.fromNat(prefix)], Conversion.nat32ToBytes(i)));
         i += 1;
       };

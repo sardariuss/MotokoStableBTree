@@ -111,41 +111,41 @@ module {
   ///
   /// ```text
   /// -------------------------------------------------- <- Address 0
-  /// Magic "MGR"               ↕ 3 bytes
+  /// Magic "MGR"                           ↕ 3 bytes
   /// --------------------------------------------------
-  /// Layout version            ↕ 1 byte
+  /// Layout version                        ↕ 1 byte
   /// --------------------------------------------------
-  /// Number of allocated buckets       ↕ 2 bytes
+  /// Number of allocated buckets           ↕ 2 bytes
   /// --------------------------------------------------
-  /// Max number of buckets = N       ↕ 2 bytes
+  /// Bucket size (in pages) = N            ↕ 2 bytes
   /// --------------------------------------------------
-  /// Reserved space            ↕ 32 bytes
+  /// Reserved space                        ↕ 32 bytes
   /// --------------------------------------------------
-  /// Size of memory 0 (in pages)       ↕ 8 bytes
+  /// Size of memory 0 (in pages)           ↕ 8 bytes
   /// --------------------------------------------------
-  /// Size of memory 1 (in pages)       ↕ 8 bytes
+  /// Size of memory 1 (in pages)           ↕ 8 bytes
   /// --------------------------------------------------
   /// ...
   /// --------------------------------------------------
-  /// Size of memory 254 (in pages)     ↕ 8 bytes
+  /// Size of memory 254 (in pages)         ↕ 8 bytes
   /// -------------------------------------------------- <- Bucket allocations
-  /// Bucket 1                ↕ 1 byte    (1 byte indicating which memory owns it)
+  /// Bucket 1                              ↕ 1 byte        (1 byte indicating which memory owns it)
   /// --------------------------------------------------
-  /// Bucket 2                ↕ 1 byte
+  /// Bucket 2                              ↕ 1 byte
   /// --------------------------------------------------
   /// ...
   /// --------------------------------------------------
-  /// Bucket `MAX_NUM_BUCKETS`        ↕ 1 byte
+  /// Bucket `MAX_NUM_BUCKETS`              ↕ 1 byte
   /// --------------------------------------------------
-  /// Unallocated space
+  /// Unallocated space                     ↕ 30'688 bytes
   /// -------------------------------------------------- <- Buckets (Page 1)
-  /// Bucket 1                ↕ 1024 pages
-  /// -------------------------------------------------- <- Page 1025
-  /// Bucket 2                ↕ 1024 pages
+  /// Bucket 1                              ↕ N pages
+  /// -------------------------------------------------- <- Page N + 1
+  /// Bucket 2                              ↕ N pages
   /// --------------------------------------------------
   /// ...
-  /// -------------------------------------------------- <- Page ((N - 1) * 1024 + 1)
-  /// Bucket N                ↕ 1024 pages
+  /// -------------------------------------------------- <- Page ((MAX_NUM_BUCKETS - 1) * N + 1)
+  /// Bucket MAX_NUM_BUCKETS                ↕ N pages
   /// ```
 
   /// Initializes a `MemoryManager` with the given memory.
