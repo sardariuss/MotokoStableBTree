@@ -13,4 +13,4 @@ See singleBTree.mo and multipleBTrees.mo in the test/integration directory.
 
 ## Funding
 
-This library was initially incentivized by [ICDevs](https://icdevs.org/). You can view more about the bounty on the [forum](https://forum.dfinity.org/t/completed-icdevs-org-bounty-24-stablebtree-mokoko-up-to-10k/14867/23) or [website](https://icdevs.org/bounties/2022/08/14/Motoko-StableBTree.html). The bounty was funded by The ICDevs.org community and the DFINITY Foundation and the award was paid to @natlabs. If you use this library and gain value from it, please consider a [donation](https://icdevs.org/donations.html) to ICDevs
+This library was initially incentivized by [ICDevs](https://icdevs.org/). You can view more about the bounty on the [forum](https://forum.dfinity.org/t/completed-icdevs-org-bounty-24-stablebtree-mokoko-up-to-10k/14867/23) or [website](https://icdevs.org/bounties/2022/08/14/Motoko-StableBTree.html). The bounty was funded by The ICDevs.org community and the DFINITY Foundation and the award was paid to @sardariuss. If you use this library and gain value from it, please consider a [donation](https://icdevs.org/donations.html) to ICDevs
