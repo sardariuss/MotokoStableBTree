@@ -62,7 +62,7 @@ actor class SingleBTree() {
       };
     };
     if (buffer.size() > 0){
-      #err(buffer.toArray());
+      #err(Buffer.toArray(buffer));
     } else {
       #ok;
     };
@@ -76,7 +76,7 @@ actor class SingleBTree() {
         case(null) {};
       };
     };
-    buffer.toArray();
+    Buffer.toArray(buffer);
   };
 
   public func containsKeys(keys: [K]) : async Bool {
@@ -96,7 +96,7 @@ actor class SingleBTree() {
         case(null) {};
       };
     };
-    buffer.toArray();
+    Buffer.toArray(buffer);
   };
 
   public func empty() : async () {

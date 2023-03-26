@@ -57,7 +57,7 @@ module {
 
     // Check if the magic in the memory corresponds to a BTreeMap.
     let dst = Memory.read(memory, 0, 3);
-    if (dst != Blob.toArray(Text.encodeUtf8(MAGIC))) {
+    if (dst != Text.encodeUtf8(MAGIC)) {
       // No BTreeMap found. Create a new instance.
       return new(memory, key_converter, value_converter);
     };
@@ -159,24 +159,24 @@ module {
   };
 
   func saveBTreeHeader(header: BTreeHeader, addr: Address, memory: Memory) {
-    Memory.write(memory, addr                        ,                                   header.magic);
-    Memory.write(memory, addr + 3                    ,                               [header.version]);
+    Memory.write(memory, addr                        ,                   Blob.fromArray(header.magic));
+    Memory.write(memory, addr + 3                    ,               Blob.fromArray([header.version]));
     Memory.write(memory, addr + 3 + 1                ,   Conversion.nat32ToBytes(header.max_key_size));
     Memory.write(memory, addr + 3 + 1 + 4            , Conversion.nat32ToBytes(header.max_value_size));
     Memory.write(memory, addr + 3 + 1 + 4 + 4        ,      Conversion.nat64ToBytes(header.root_addr));
     Memory.write(memory, addr + 3 + 1 + 4 + 4 + 8    ,         Conversion.nat64ToBytes(header.length));
-    Memory.write(memory, addr + 3 + 1 + 4 + 4 + 8 + 8,                                 header._buffer);
+    Memory.write(memory, addr + 3 + 1 + 4 + 4 + 8 + 8,                 Blob.fromArray(header._buffer));
   };
 
   func loadBTreeHeader(addr: Address, memory: Memory) : BTreeHeader {
     let header = {
-      magic =                                  Memory.read(memory, addr                        , 3);
-      version =                                Memory.read(memory, addr + 3                    , 1)[0];
+      magic =                     Blob.toArray(Memory.read(memory, addr                        , 3));
+      version =                   Blob.toArray(Memory.read(memory, addr + 3                    , 1))[0];
       max_key_size =   Conversion.bytesToNat32(Memory.read(memory, addr + 3 + 1                , 4));
       max_value_size = Conversion.bytesToNat32(Memory.read(memory, addr + 3 + 1 + 4            , 4));
       root_addr =      Conversion.bytesToNat64(Memory.read(memory, addr + 3 + 1 + 4 + 4        , 8));
       length =         Conversion.bytesToNat64(Memory.read(memory, addr + 3 + 1 + 4 + 4 + 8    , 8));
-      _buffer =                                Memory.read(memory, addr + 3 + 1 + 4 + 4 + 8 + 8, 24);
+      _buffer =                  Blob.toArray(Memory.read(memory, addr + 3 + 1 + 4 + 4 + 8 + 8, 24));
     };
     if (header.magic != Blob.toArray(Text.encodeUtf8(MAGIC))) { Debug.trap("Bad magic."); };
     if (header.version != LAYOUT_VERSION)                     { Debug.trap("Unsupported version."); };
@@ -292,14 +292,14 @@ module {
           };
         };
       };
-      #ok(Option.map<[Nat8], V>(
+      #ok(Option.map<Blob, V>(
         insertNonFull(root, key, value),
-        func(bytes: [Nat8]) : V { value_converter_.fromBytes(bytes); })
+        func(bytes: Blob) : V { value_converter_.fromBytes(bytes); })
       );
     };
 
     // Inserts an entry into a node that is *not full*.
-    func insertNonFull(node: Node, key: [Nat8], value: [Nat8]) : ?[Nat8] {
+    func insertNonFull(node: Node, key: Blob, value: Blob) : ?Blob {
       // We're guaranteed by the caller that the provided node is not full.
       assert(not node.isFull());
 
@@ -429,13 +429,13 @@ module {
       if (root_addr_ == Constants.NULL) {
         return null;
       };
-      Option.map<[Nat8], V>(
+      Option.map<Blob, V>(
         getHelper(root_addr_, key_converter_.toBytes(key)),
-        func(bytes: [Nat8]) : V { value_converter_.fromBytes(bytes); }
+        func(bytes: Blob) : V { value_converter_.fromBytes(bytes); }
       );
     };
 
-    func getHelper(node_addr: Address, key: [Nat8]) : ?[Nat8] {
+    func getHelper(node_addr: Address, key: Blob) : ?Blob {
       let node = loadNode(node_addr);
       switch(node.getKeyIdx(key)){
         case(#ok(idx)) { ?node.getEntry(idx).1; };
@@ -466,14 +466,14 @@ module {
       if (root_addr_ == Constants.NULL) {
         return null;
       };
-      Option.map<[Nat8], V>(
+      Option.map<Blob, V>(
         removeHelper(root_addr_, key_converter_.toBytes(key)),
-        func(bytes: [Nat8]) : V { value_converter_.fromBytes(bytes); }
+        func(bytes: Blob) : V { value_converter_.fromBytes(bytes); }
       );
     };
 
     // A helper method for recursively removing a key from the B-tree.
-    func removeHelper(node_addr: Address, key: [Nat8]) : ?[Nat8] {
+    func removeHelper(node_addr: Address, key: Blob) : ?Blob {
       var node = loadNode(node_addr);
 
       if(node.getAddress() != root_addr_){
@@ -870,7 +870,7 @@ module {
             pivot.append(Utils.toBuffer(offset));
           };
         };
-        let idx = switch(node.getKeyIdx(pivot.toArray())){
+        let idx = switch(node.getKeyIdx(Blob.fromArray(pivot.toArray()))){
           case(#err(idx)) { idx; };
           case(#ok(idx)) { idx; };
         };
@@ -891,7 +891,7 @@ module {
         };
 
         // If the prefix is found in the node, then add a cursor starting from its index.
-        if (idx < node.getEntries().size() and Utils.isPrefixOf(prefix, node.getEntry(idx).0, Nat8.equal)){
+        if (idx < node.getEntries().size() and Utils.isPrefixOf(prefix, Blob.toArray(node.getEntry(idx).0), Nat8.equal)){
           cursors.add(#Node {
             node;
             next = #Entry(Nat64.fromNat(idx));

@@ -19,6 +19,7 @@ import Text "mo:base/Text";
 import Array "mo:base/Array";
 import Result "mo:base/Result";
 import Bool "mo:base/Bool";
+import Blob "mo:base/Blob";
 
 module {
 
@@ -211,11 +212,11 @@ module {
   };
 
   func entryToText(entry: Entry) : Text {
-    "key: " # bytesToText(entry.0) # ", value: " # bytesToText(entry.1);
+    "key: " # bytesToText(Blob.toArray(entry.0)) # ", value: " # bytesToText(Blob.toArray(entry.1));
   };
 
   func entryEqual(entry1: Entry, entry2: Entry) : Bool {
-    bytesEqual(entry1.0, entry2.0) and bytesEqual(entry1.1, entry2.1);
+    bytesEqual(Blob.toArray(entry1.0), Blob.toArray(entry2.0)) and bytesEqual(Blob.toArray(entry1.1), Blob.toArray(entry2.1));
   };
 
   func testEntries(entries: [Entry]) : Testable.TestableItem<[Entry]> {

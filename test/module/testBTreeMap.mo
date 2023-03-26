@@ -12,6 +12,8 @@ import Nat32 "mo:base/Nat32";
 import Nat8 "mo:base/Nat8";
 import Iter "mo:base/Iter";
 import Int "mo:base/Int";
+import Blob "mo:base/Blob";
+import Array "mo:base/Array";
 
 module {
 
@@ -25,17 +27,25 @@ module {
 
   // A helper method to succinctly create an entry.
   func e(x: Nat8) : Entry {
-    ([x], []);
+    (Blob.fromArray([x]), Blob.fromArray([]));
+  };
+
+  func toEntry(input: ([Nat8], [Nat8])) : Entry {
+    (Blob.fromArray(input.0), Blob.fromArray(input.1));
+  };
+
+  func toEntryArray(input: [([Nat8], [Nat8])]) : [Entry] {
+    Array.map(input, toEntry);
   };
 
   func initPreservesData(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    var btree = BTreeMap.init<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(3), BytesConverter.bytesPassthrough(4));
+    var btree = BTreeMap.init<[Nat8], [Nat8]>(mem, BytesConverter.byteArrayConverter(3), BytesConverter.byteArrayConverter(4));
     test.equalsInsertResult(btree.insert([1, 2, 3], [4, 5, 6]), #ok(null));
     test.equalsOptBytes(btree.get([1, 2, 3]), ?([4, 5, 6]));
 
     // Reload the btree
-    btree := BTreeMap.init<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(3), BytesConverter.bytesPassthrough(4));
+    btree := BTreeMap.init<[Nat8], [Nat8]>(mem, BytesConverter.byteArrayConverter(3), BytesConverter.byteArrayConverter(4));
 
     // Data still exists.
     test.equalsOptBytes(btree.get([1, 2, 3]), ?([4, 5, 6]));
@@ -43,7 +53,7 @@ module {
 
   func insertGet(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(3), BytesConverter.bytesPassthrough(4));
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.byteArrayConverter(3), BytesConverter.byteArrayConverter(4));
 
     test.equalsInsertResult(btree.insert([1, 2, 3], [4, 5, 6]), #ok(null));
     test.equalsOptBytes(btree.get([1, 2, 3]), ?([4, 5, 6]));
@@ -51,7 +61,7 @@ module {
 
   func insertOverwritesPreviousValue(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.byteArrayConverter(5), BytesConverter.byteArrayConverter(5));
 
     test.equalsInsertResult(btree.insert([1, 2, 3], [4, 5, 6]), #ok(null));
     test.equalsInsertResult(btree.insert([1, 2, 3], [7, 8, 9]), #ok(?([4, 5, 6])));
@@ -60,7 +70,7 @@ module {
 
   func insertGetMultiple(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.byteArrayConverter(5), BytesConverter.byteArrayConverter(5));
 
     test.equalsInsertResult(btree.insert([1, 2, 3] , [4, 5, 6]), #ok(null));
     test.equalsInsertResult(btree.insert([4, 5] , [7, 8, 9, 10]), #ok(null));
@@ -72,7 +82,7 @@ module {
 
   func insertOverwriteMedianKeyInFullChildNode(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.byteArrayConverter(5), BytesConverter.byteArrayConverter(5));
 
     for (i in Iter.range(1, 17)) {
       test.equalsInsertResult(btree.insert([Nat8.fromNat(i)], []), #ok(null));
@@ -85,14 +95,14 @@ module {
 
     let root = btree.loadNode(btree.getRootAddr());
     test.equalsNodeType(root.getNodeType(), #Internal);
-    test.equalsEntries(root.getEntries().toArray(), [Node.makeEntry([6], [])]);
+    test.equalsEntries(root.getEntries().toArray(), [e(6)]);
     test.equalsNat(root.getChildren().size(), 2);
 
     // The right child should now be full, with the median key being "12"
     var right_child = btree.loadNode(root.getChildren().get(1));
     test.equalsBool(right_child.isFull(), true);
     let median_index = right_child.getEntries().size() / 2;
-    test.equalsBytes(right_child.getEntries().get(median_index).0, [12]);
+    test.equalsBytes(Blob.toArray(right_child.getEntries().get(median_index).0), [12]);
 
     // Overwrite the median key.
     test.equalsInsertResult(btree.insert([12], [1, 2, 3]), #ok(?([])));
@@ -108,7 +118,7 @@ module {
 
   func insertOverwriteKeyInFullRootNode(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.byteArrayConverter(5), BytesConverter.byteArrayConverter(5));
 
     for (i in Iter.range(1, 11)) {
       test.equalsInsertResult(btree.insert([Nat8.fromNat(i)], []), #ok(null));
@@ -131,7 +141,7 @@ module {
 
   func allocations(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.byteArrayConverter(5), BytesConverter.byteArrayConverter(5));
 
     for (i in Iter.range(0, Nat64.toNat(Node.getCapacity() - 1))) {
       test.equalsInsertResult(btree.insert([Nat8.fromNat(i)], []), #ok(null));
@@ -148,7 +158,7 @@ module {
 
   func allocations2(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.byteArrayConverter(5), BytesConverter.byteArrayConverter(5));
     test.equalsNat64(btree.getAllocator().getNumAllocatedChunks(), 0);
 
     test.equalsInsertResult(btree.insert([], []), #ok(null));
@@ -160,7 +170,7 @@ module {
 
   func insertSameKeyMultiple(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.byteArrayConverter(5), BytesConverter.byteArrayConverter(5));
 
     test.equalsInsertResult(btree.insert([1], [2]), #ok(null));
 
@@ -171,7 +181,7 @@ module {
 
   func insertSplitNode(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.byteArrayConverter(5), BytesConverter.byteArrayConverter(5));
 
     for (i in Iter.range(1, 11)) {
       test.equalsInsertResult(btree.insert([Nat8.fromNat(i)], []), #ok(null));
@@ -192,7 +202,7 @@ module {
 
   func overwriteTest(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.byteArrayConverter(5), BytesConverter.byteArrayConverter(5));
 
     let num_elements = 255;
 
@@ -216,7 +226,7 @@ module {
 
   func insertSplitMultipleNodes(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.byteArrayConverter(5), BytesConverter.byteArrayConverter(5));
 
     for (i in Iter.range(1, 11)) {
       test.equalsInsertResult(btree.insert([Nat8.fromNat(i)], []), #ok(null));
@@ -231,7 +241,7 @@ module {
 
     var root = btree.loadNode(btree.getRootAddr());
     test.equalsNodeType(root.getNodeType(), #Internal);
-    test.equalsEntries(root.getEntries().toArray(), [([6], [])]);
+    test.equalsEntries(root.getEntries().toArray(), [e(6)]);
     test.equalsNat(root.getChildren().size(), 2);
 
     var child_0 = btree.loadNode(root.getChildren().get(0));
@@ -239,11 +249,11 @@ module {
     test.equalsEntries(
       child_0.getEntries().toArray(),
       [
-        ([1], []),
-        ([2], []),
-        ([3], []),
-        ([4], []),
-        ([5], [])
+        e(1),
+        e(2),
+        e(3),
+        e(4),
+        e(5),
       ]
     );
 
@@ -252,12 +262,12 @@ module {
     test.equalsEntries(
       child_1.getEntries().toArray(),
       [
-        ([7], []),
-        ([8], []),
-        ([9], []),
-        ([10], []),
-        ([11], []),
-        ([12], [])
+        e(7),
+        e(8),
+        e(9),
+        e(10),
+        e(11),
+        e(12),
       ]
     );
 
@@ -280,7 +290,7 @@ module {
 
     root := btree.loadNode(btree.getRootAddr());
     test.equalsNodeType(root.getNodeType(), #Internal);
-    test.equalsEntries(root.getEntries().toArray(), [([6], []), ([12], [])]);
+    test.equalsEntries(root.getEntries().toArray(), [e(6), e(12)]);
     test.equalsNat(root.getChildren().size(), 3);
 
     child_0 := btree.loadNode(root.getChildren().get(0));
@@ -288,11 +298,11 @@ module {
     test.equalsEntries(
       child_0.getEntries().toArray(),
       [
-        ([1], []),
-        ([2], []),
-        ([3], []),
-        ([4], []),
-        ([5], [])
+        e(1),
+        e(2),
+        e(3),
+        e(4),
+        e(5),
       ]
     );
 
@@ -301,11 +311,11 @@ module {
     test.equalsEntries(
       child_1.getEntries().toArray(),
       [
-        ([7], []),
-        ([8], []),
-        ([9], []),
-        ([10], []),
-        ([11], []),
+        e(7),
+        e(8),
+        e(9),
+        e(10),
+        e(11),
       ]
     );
 
@@ -314,19 +324,19 @@ module {
     test.equalsEntries(
       child_2.getEntries().toArray(),
       [
-        ([13], []),
-        ([14], []),
-        ([15], []),
-        ([16], []),
-        ([17], []),
-        ([18], []),
+        e(13),
+        e(14),
+        e(15),
+        e(16),
+        e(17),
+        e(18),
       ]
     );
   };
 
   func removeSimple(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.byteArrayConverter(5), BytesConverter.byteArrayConverter(5));
 
     test.equalsInsertResult(btree.insert([1, 2, 3], [4, 5, 6]), #ok(null));
     test.equalsOptBytes(btree.get([1, 2, 3]), ?([4, 5, 6]));
@@ -336,7 +346,7 @@ module {
 
   func removeCase2aAnd2c(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    var btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
+    var btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.byteArrayConverter(5), BytesConverter.byteArrayConverter(5));
 
     for (i in Iter.range(1, 11)) {
       test.equalsInsertResult(btree.insert([Nat8.fromNat(i)], []), #ok(null));
@@ -380,7 +390,7 @@ module {
     test.equalsOptBytes(btree.remove([5]), ?([]));
 
     // Reload the btree to verify that we saved it correctly.
-    btree := BTreeMap.load(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
+    btree := BTreeMap.load(mem, BytesConverter.byteArrayConverter(5), BytesConverter.byteArrayConverter(5));
 
     // The result should look like this:
     // [0, 1, 2, 3, 4, 7, 8, 9, 10, 11]
@@ -396,7 +406,7 @@ module {
 
   func removeCase2b(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.byteArrayConverter(5), BytesConverter.byteArrayConverter(5));
 
     for (i in Iter.range(1, 11)) {
       test.equalsInsertResult(btree.insert([Nat8.fromNat(i)], []), #ok(null));
@@ -459,7 +469,7 @@ module {
 
   func removeCase3aRight(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.byteArrayConverter(5), BytesConverter.byteArrayConverter(5));
 
     for (i in Iter.range(1, 11)) {
       test.equalsInsertResult(btree.insert([Nat8.fromNat(i)], []), #ok(null));
@@ -482,7 +492,7 @@ module {
     // [1, 2, 4, 5, 6]   [8, 9, 10, 11, 12]
     let root = btree.loadNode(btree.getRootAddr());
     test.equalsNodeType(root.getNodeType(), #Internal);
-    test.equalsEntries(root.getEntries().toArray(), [([7], [])]);
+    test.equalsEntries(root.getEntries().toArray(), [e(7)]);
     test.equalsNat(root.getChildren().size(), 2);
 
     let child_0 = btree.loadNode(root.getChildren().get(0));
@@ -499,7 +509,7 @@ module {
 
   func removeCase3aLeft(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.byteArrayConverter(5), BytesConverter.byteArrayConverter(5));
 
     for (i in Iter.range(1, 11)) {
       test.equalsInsertResult(btree.insert([Nat8.fromNat(i)], []), #ok(null));
@@ -521,7 +531,7 @@ module {
     // [0, 1, 2, 3, 4]   [6, 7, 9, 10, 11]
     let root = btree.loadNode(btree.getRootAddr());
     test.equalsNodeType(root.getNodeType(), #Internal);
-    test.equalsEntries(root.getEntries().toArray(), [([5], [])]);
+    test.equalsEntries(root.getEntries().toArray(), [e(5)]);
     test.equalsNat(root.getChildren().size(), 2);
 
     let child_0 = btree.loadNode(root.getChildren().get(0));
@@ -538,7 +548,7 @@ module {
 
   func removeCase3bMergeIntoRight(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    var btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
+    var btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.byteArrayConverter(5), BytesConverter.byteArrayConverter(5));
 
     for (i in Iter.range(1, 11)) {
       test.equalsInsertResult(btree.insert([Nat8.fromNat(i)], []), #ok(null));
@@ -563,7 +573,7 @@ module {
     // [1, 2, 3, 4, 5]   [8, 9, 10, 11, 12]
     var root = btree.loadNode(btree.getRootAddr());
     test.equalsNodeType(root.getNodeType(), #Internal);
-    test.equalsEntries(root.getEntries().toArray(), [([7], [])]);
+    test.equalsEntries(root.getEntries().toArray(), [e(7)]);
     test.equalsNat(root.getChildren().size(), 2);
 
     let child_0 = btree.loadNode(root.getChildren().get(0));
@@ -581,7 +591,7 @@ module {
     test.equalsOptBytes(btree.remove([3]), ?([]));
 
     // Reload the btree to verify that we saved it correctly.
-    btree := BTreeMap.load(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
+    btree := BTreeMap.load(mem, BytesConverter.byteArrayConverter(5), BytesConverter.byteArrayConverter(5));
 
     // The result should look like this:
     //
@@ -610,7 +620,7 @@ module {
 
   func removeCase3bMergeIntoLeft(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    var btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
+    var btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.byteArrayConverter(5), BytesConverter.byteArrayConverter(5));
 
     for (i in Iter.range(1, 11)) {
       test.equalsInsertResult(btree.insert([Nat8.fromNat(i)], []), #ok(null));
@@ -637,7 +647,7 @@ module {
     // [1, 2, 3, 4, 5]   [8, 9, 10, 11, 12]
     var root = btree.loadNode(btree.getRootAddr());
     test.equalsNodeType(root.getNodeType(), #Internal);
-    test.equalsEntries(root.getEntries().toArray(), [([7], [])]);
+    test.equalsEntries(root.getEntries().toArray(), [e(7)]);
     test.equalsNat(root.getChildren().size(), 2);
 
     let child_0 = btree.loadNode(root.getChildren().get(0));
@@ -655,7 +665,7 @@ module {
     test.equalsOptBytes(btree.remove([10]), ?([]));
 
     // Reload the btree to verify that we saved it correctly.
-    btree := BTreeMap.load(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
+    btree := BTreeMap.load(mem, BytesConverter.byteArrayConverter(5), BytesConverter.byteArrayConverter(5));
 
     // The result should look like this:
     //
@@ -673,7 +683,7 @@ module {
 
   func manyInsertions(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    var btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
+    var btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.byteArrayConverter(5), BytesConverter.byteArrayConverter(5));
 
     for (j in Iter.range(0, 10)) {
       for (i in Iter.range(0, 255)) {
@@ -689,7 +699,7 @@ module {
       };
     };
 
-    btree := BTreeMap.load(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
+    btree := BTreeMap.load(mem, BytesConverter.byteArrayConverter(5), BytesConverter.byteArrayConverter(5));
 
     for (j in Iter.range(0, 10)) {
       for (i in Iter.range(0, 255)) {
@@ -711,7 +721,7 @@ module {
 
   func manyInsertions2(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    var btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
+    var btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.byteArrayConverter(5), BytesConverter.byteArrayConverter(5));
 
     for (j in Iter.revRange(10, 0)) {
       for (i in Iter.revRange(255, 0)) {
@@ -727,7 +737,7 @@ module {
       };
     };
 
-    btree := BTreeMap.load(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
+    btree := BTreeMap.load(mem, BytesConverter.byteArrayConverter(5), BytesConverter.byteArrayConverter(5));
 
     for (j in Iter.revRange(10, 0)) {
       for (i in Iter.revRange((255, 0))) {
@@ -749,7 +759,7 @@ module {
 
   func reloading(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    var btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
+    var btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.byteArrayConverter(5), BytesConverter.byteArrayConverter(5));
 
     // The btree is initially empty.
     test.equalsNat64(btree.getLength(), 0);
@@ -762,19 +772,19 @@ module {
 
     // Reload the btree. The element should still be there, and `len()`
     // should still be `1`.
-    btree := BTreeMap.load(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
+    btree := BTreeMap.load(mem, BytesConverter.byteArrayConverter(5), BytesConverter.byteArrayConverter(5));
     test.equalsOptBytes(btree.get([1, 2, 3]), ?([4, 5, 6]));
     test.equalsNat64(btree.getLength(), 1);
     test.equalsBool(btree.isEmpty(), false);
 
     // Remove an element. Length should be zero.
-    btree := BTreeMap.load(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
+    btree := BTreeMap.load(mem, BytesConverter.byteArrayConverter(5), BytesConverter.byteArrayConverter(5));
     test.equalsOptBytes(btree.remove([1, 2, 3]), ?([4, 5, 6]));
     test.equalsNat64(btree.getLength(), 0);
     test.equalsBool(btree.isEmpty(), true);
 
     // Reload. Btree should still be empty.
-    btree := BTreeMap.load(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
+    btree := BTreeMap.load(mem, BytesConverter.byteArrayConverter(5), BytesConverter.byteArrayConverter(5));
     test.equalsOptBytes(btree.get([1, 2, 3]), null);
     test.equalsNat64(btree.getLength(), 0);
     test.equalsBool(btree.isEmpty(), true);
@@ -782,17 +792,17 @@ module {
 
   func len(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.byteArrayConverter(5), BytesConverter.byteArrayConverter(5));
 
     for (i in Iter.range(0, 999)) {
-      test.equalsInsertResult(btree.insert(Conversion.nat32ToBytes(Nat32.fromNat(i)), []) , #ok(null));
+      test.equalsInsertResult(btree.insert(Conversion.nat32ToByteArray(Nat32.fromNat(i)), []) , #ok(null));
     };
 
     test.equalsNat64(btree.getLength(), 1000);
     test.equalsBool(btree.isEmpty(), false);
 
     for (i in Iter.range(0, 999)) {
-      test.equalsOptBytes(btree.remove(Conversion.nat32ToBytes(Nat32.fromNat(i))), ?([]));
+      test.equalsOptBytes(btree.remove(Conversion.nat32ToByteArray(Nat32.fromNat(i))), ?([]));
     };
 
     test.equalsNat64(btree.getLength(), 0);
@@ -801,44 +811,44 @@ module {
 
   func containsKey(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.byteArrayConverter(5), BytesConverter.byteArrayConverter(5));
 
     // Insert even numbers from 0 to 1000.
     for (i in Iter.range(0, 499)) {
-      test.equalsInsertResult(btree.insert(Conversion.nat32ToBytes(Nat32.fromNat(i * 2)), []), #ok(null));
+      test.equalsInsertResult(btree.insert(Conversion.nat32ToByteArray(Nat32.fromNat(i * 2)), []), #ok(null));
     };
 
     // Contains key should return true on all the even numbers and false on all the odd
     // numbers.
     for (i in Iter.range(0, 499)) {
-      test.equalsBool(btree.containsKey(Conversion.nat32ToBytes(Nat32.fromNat(i))), (i % 2 == 0));
+      test.equalsBool(btree.containsKey(Conversion.nat32ToByteArray(Nat32.fromNat(i))), (i % 2 == 0));
     };
   };
 
   func rangeEmpty(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.byteArrayConverter(5), BytesConverter.byteArrayConverter(5));
 
     // Test prefixes that don't exist in the map.
-    test.equalsEntries(Iter.toArray(btree.range([0], null)), []);
-    test.equalsEntries(Iter.toArray(btree.range([1, 2, 3, 4], null)), []);
+    test.equalsEntries(toEntryArray(Iter.toArray(btree.range([0], null))), []);
+    test.equalsEntries(toEntryArray(Iter.toArray(btree.range([1, 2, 3, 4], null))), []);
   };
 
   // Tests the case where the prefix is larger than all the entries in a leaf node.
   func rangeLeafPrefixGreaterThanAllEntries(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.byteArrayConverter(5), BytesConverter.byteArrayConverter(5));
 
     ignore btree.insert([0], []);
 
     // Test a prefix that's larger than the value in the leaf node. Should be empty.
-    test.equalsEntries(Iter.toArray(btree.range([1], null)), []);
+    test.equalsEntries(toEntryArray(Iter.toArray(btree.range([1], null))), []);
   };
 
   // Tests the case where the prefix is larger than all the entries in an internal node.
   func rangeInternalPrefixGreaterThanAllEntries(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.byteArrayConverter(5), BytesConverter.byteArrayConverter(5));
 
     for (i in Iter.range(1, 12)) {
       test.equalsInsertResult(btree.insert([Nat8.fromNat(i)], []), #ok(null));
@@ -851,14 +861,14 @@ module {
 
     // Test a prefix that's larger than the value in the internal node.
     test.equalsEntries(
-      Iter.toArray(btree.range([7], null)),
-      [([7], [])]
+      toEntryArray(Iter.toArray(btree.range([7], null))),
+      [e(7)]
     );
   };
 
   func rangeVariousPrefixes(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.byteArrayConverter(5), BytesConverter.byteArrayConverter(5));
 
     ignore btree.insert([0, 1], []);
     ignore btree.insert([0, 2], []);
@@ -880,65 +890,65 @@ module {
 
     let root = btree.loadNode(btree.getRootAddr());
     test.equalsNodeType(root.getNodeType(), #Internal);
-    test.equalsEntries(root.getEntries().toArray(), [([1, 2], [])]);
+    test.equalsEntries(root.getEntries().toArray(), [(Blob.fromArray([1, 2]), Blob.fromArray([]))]);
     test.equalsNat(root.getChildren().size(), 2);
 
     // Tests a prefix that's smaller than the value in the internal node.
     test.equalsEntries(
-      Iter.toArray(btree.range([0], null)),
+      toEntryArray(Iter.toArray(btree.range([0], null))),
       [
-        ([0, 1], []),
-        ([0, 2], []),
-        ([0, 3], []),
-        ([0, 4], []),
+        (Blob.fromArray([0, 1]), Blob.fromArray([])),
+        (Blob.fromArray([0, 2]), Blob.fromArray([])),
+        (Blob.fromArray([0, 3]), Blob.fromArray([])),
+        (Blob.fromArray([0, 4]), Blob.fromArray([])),
       ]
     );
 
     // Tests a prefix that crosses several nodes.
     test.equalsEntries(
-      Iter.toArray(btree.range([1], null)),
+      toEntryArray(Iter.toArray(btree.range([1], null))),
       [
-        ([1, 1], []),
-        ([1, 2], []),
-        ([1, 3], []),
-        ([1, 4], []),
+        (Blob.fromArray([1, 1]), Blob.fromArray([])),
+        (Blob.fromArray([1, 2]), Blob.fromArray([])),
+        (Blob.fromArray([1, 3]), Blob.fromArray([])),
+        (Blob.fromArray([1, 4]), Blob.fromArray([])),
       ]
     );
 
     // Tests a prefix that's larger than the value in the internal node.
     test.equalsEntries(
-      Iter.toArray(btree.range([2], null)),
+      toEntryArray(Iter.toArray(btree.range([2], null))),
       [
-        ([2, 1], []),
-        ([2, 2], []),
-        ([2, 3], []),
-        ([2, 4], []),
+        (Blob.fromArray([2, 1]), Blob.fromArray([])),
+        (Blob.fromArray([2, 2]), Blob.fromArray([])),
+        (Blob.fromArray([2, 3]), Blob.fromArray([])),
+        (Blob.fromArray([2, 4]), Blob.fromArray([])),
       ]
     );
   };
 
   func rangeVariousPrefixes2(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.byteArrayConverter(5), BytesConverter.byteArrayConverter(5));
 
-    ignore btree.insert([0, 1], []);
-    ignore btree.insert([0, 2], []);
-    ignore btree.insert([0, 3], []);
-    ignore btree.insert([0, 4], []);
-    ignore btree.insert([1, 2], []);
-    ignore btree.insert([1, 4], []);
-    ignore btree.insert([1, 6], []);
-    ignore btree.insert([1, 8], []);
+    ignore btree.insert([0, 1],  []);
+    ignore btree.insert([0, 2],  []);
+    ignore btree.insert([0, 3],  []);
+    ignore btree.insert([0, 4],  []);
+    ignore btree.insert([1, 2],  []);
+    ignore btree.insert([1, 4],  []);
+    ignore btree.insert([1, 6],  []);
+    ignore btree.insert([1, 8],  []);
     ignore btree.insert([1, 10], []);
-    ignore btree.insert([2, 1], []);
-    ignore btree.insert([2, 2], []);
-    ignore btree.insert([2, 3], []);
-    ignore btree.insert([2, 4], []);
-    ignore btree.insert([2, 5], []);
-    ignore btree.insert([2, 6], []);
-    ignore btree.insert([2, 7], []);
-    ignore btree.insert([2, 8], []);
-    ignore btree.insert([2, 9], []);
+    ignore btree.insert([2, 1],  []);
+    ignore btree.insert([2, 2],  []);
+    ignore btree.insert([2, 3],  []);
+    ignore btree.insert([2, 4],  []);
+    ignore btree.insert([2, 5],  []);
+    ignore btree.insert([2, 6],  []);
+    ignore btree.insert([2, 7],  []);
+    ignore btree.insert([2, 8],  []);
+    ignore btree.insert([2, 9],  []);
 
     // The result should look like this:
     //                     [(1, 4), (2, 3)]
@@ -950,7 +960,10 @@ module {
     test.equalsNodeType(root.getNodeType(), #Internal);
     test.equalsEntries(
       root.getEntries().toArray(),
-      [([1, 4], []), ([2, 3], [])]
+      [
+        (Blob.fromArray([1, 4]), Blob.fromArray([])),
+        (Blob.fromArray([2, 3]), Blob.fromArray([])),
+      ]
     );
     test.equalsNat(root.getChildren().size(), 3);
 
@@ -959,11 +972,11 @@ module {
     test.equalsEntries(
       child_0.getEntries().toArray(),
       [
-        ([0, 1], []),
-        ([0, 2], []),
-        ([0, 3], []),
-        ([0, 4], []),
-        ([1, 2], []),
+        (Blob.fromArray([0, 1]), Blob.fromArray([])),
+        (Blob.fromArray([0, 2]), Blob.fromArray([])),
+        (Blob.fromArray([0, 3]), Blob.fromArray([])),
+        (Blob.fromArray([0, 4]), Blob.fromArray([])),
+        (Blob.fromArray([1, 2]), Blob.fromArray([])),
       ]
     );
 
@@ -972,11 +985,11 @@ module {
     test.equalsEntries(
       child_1.getEntries().toArray(),
       [
-        ([1, 6], []),
-        ([1, 8], []),
-        ([1, 10], []),
-        ([2, 1], []),
-        ([2, 2], []),
+        (Blob.fromArray([1, 6]), Blob.fromArray([])),
+        (Blob.fromArray([1, 8]), Blob.fromArray([])),
+        (Blob.fromArray([1, 10]), Blob.fromArray([])),
+        (Blob.fromArray([2, 1]), Blob.fromArray([])),
+        (Blob.fromArray([2, 2]), Blob.fromArray([])),
       ]
     );
 
@@ -984,51 +997,51 @@ module {
     test.equalsEntries(
       child_2.getEntries().toArray(),
       [
-        ([2, 4], []),
-        ([2, 5], []),
-        ([2, 6], []),
-        ([2, 7], []),
-        ([2, 8], []),
-        ([2, 9], []),
+        (Blob.fromArray([2, 4]), Blob.fromArray([])),
+        (Blob.fromArray([2, 5]), Blob.fromArray([])),
+        (Blob.fromArray([2, 6]), Blob.fromArray([])),
+        (Blob.fromArray([2, 7]), Blob.fromArray([])),
+        (Blob.fromArray([2, 8]), Blob.fromArray([])),
+        (Blob.fromArray([2, 9]), Blob.fromArray([])),
       ]
     );
 
     // Tests a prefix that doesn't exist, but is in the middle of the root node.
-    test.equalsEntries(Iter.toArray(btree.range([1, 5], null)), []);
+    test.equalsEntries(toEntryArray(Iter.toArray(btree.range([1, 5], null))), []);
 
     // Tests a prefix that crosses several nodes.
     test.equalsEntries(
-      Iter.toArray(btree.range([1], null)),
+      toEntryArray(Iter.toArray(btree.range([1], null))),
       [
-        ([1, 2], []),
-        ([1, 4], []),
-        ([1, 6], []),
-        ([1, 8], []),
-        ([1, 10], []),
+        (Blob.fromArray([1, 2]), Blob.fromArray([])),
+        (Blob.fromArray([1, 4]), Blob.fromArray([])),
+        (Blob.fromArray([1, 6]), Blob.fromArray([])),
+        (Blob.fromArray([1, 8]), Blob.fromArray([])),
+        (Blob.fromArray([1, 10]), Blob.fromArray([])),
       ]
     );
 
     // Tests a prefix that starts from a leaf node, then iterates through the root and right
     // sibling.
     test.equalsEntries(
-      Iter.toArray(btree.range([2], null)),
+      toEntryArray(Iter.toArray(btree.range([2], null))),
       [
-        ([2, 1], []),
-        ([2, 2], []),
-        ([2, 3], []),
-        ([2, 4], []),
-        ([2, 5], []),
-        ([2, 6], []),
-        ([2, 7], []),
-        ([2, 8], []),
-        ([2, 9], []),
+        (Blob.fromArray([2, 1]), Blob.fromArray([])),
+        (Blob.fromArray([2, 2]), Blob.fromArray([])),
+        (Blob.fromArray([2, 3]), Blob.fromArray([])),
+        (Blob.fromArray([2, 4]), Blob.fromArray([])),
+        (Blob.fromArray([2, 5]), Blob.fromArray([])),
+        (Blob.fromArray([2, 6]), Blob.fromArray([])),
+        (Blob.fromArray([2, 7]), Blob.fromArray([])),
+        (Blob.fromArray([2, 8]), Blob.fromArray([])),
+        (Blob.fromArray([2, 9]), Blob.fromArray([])),
       ]
     );
   };
 
   func rangeLarge(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.byteArrayConverter(5), BytesConverter.byteArrayConverter(5));
 
     // Insert 1000 elements with prefix 0 and another 1000 elements with prefix 1.
     for (prefix in Iter.range(0, 1)) {
@@ -1036,7 +1049,7 @@ module {
         // The key is the prefix followed by the integer's encoding.
         // The encoding is big-endian so that the byte representation of the
         // integers are sorted.
-        let key = Utils.append([Nat8.fromNat(prefix)], Conversion.nat32ToBytes(Nat32.fromNat(i)));
+        let key = Utils.append([Nat8.fromNat(prefix)], Conversion.nat32ToByteArray(Nat32.fromNat(i)));
         test.equalsInsertResult(btree.insert(key, []), #ok(null));
       };
     };
@@ -1045,7 +1058,7 @@ module {
     for (prefix in Iter.range(0, 1)) {
       var i : Nat32 = 0;
       for ((key, _) in btree.range([Nat8.fromNat(prefix)], null)) {
-        test.equalsBytes(key, Utils.append([Nat8.fromNat(prefix)], Conversion.nat32ToBytes(i)));
+        test.equalsBytes(key, Utils.append([Nat8.fromNat(prefix)], Conversion.nat32ToByteArray(i)));
         i += 1;
       };
       test.equalsNat32(i, 1000);
@@ -1054,7 +1067,7 @@ module {
 
   func rangeVariousPrefixesWithOffset(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.byteArrayConverter(5), BytesConverter.byteArrayConverter(5));
 
     ignore btree.insert([0, 1], []);
     ignore btree.insert([0, 2], []);
@@ -1076,36 +1089,39 @@ module {
 
     let root = btree.loadNode(btree.getRootAddr());
     test.equalsNodeType(root.getNodeType(), #Internal);
-    test.equalsEntries(root.getEntries().toArray(), [([1, 2], [])]);
+    test.equalsEntries(root.getEntries().toArray(), [(Blob.fromArray([1, 2]), Blob.fromArray([]))]);
     test.equalsNat(root.getChildren().size(), 2);
 
     // Tests a offset that's smaller than the value in the internal node.
     test.equalsEntries(
-      Iter.toArray(btree.range([0], ?([0]))),
+      toEntryArray(Iter.toArray(btree.range([0], ?([0])))),
       [
-        ([0, 1], []),
-        ([0, 2], []),
-        ([0, 3], []),
-        ([0, 4], []),
+        (Blob.fromArray([0, 1]), Blob.fromArray([])),
+        (Blob.fromArray([0, 2]), Blob.fromArray([])),
+        (Blob.fromArray([0, 3]), Blob.fromArray([])),
+        (Blob.fromArray([0, 4]), Blob.fromArray([])),
       ]
     );
 
     // Tests a offset that has a value somewhere in the range of values of an internal node.
     test.equalsEntries(
-      Iter.toArray(btree.range([1], ?([3]))),
-      [([1, 3], []), ([1, 4], []),]
+      toEntryArray(Iter.toArray(btree.range([1], ?([3])))),
+      [
+        (Blob.fromArray([1, 3]), Blob.fromArray([])), 
+        (Blob.fromArray([1, 4]), Blob.fromArray([])),
+      ]
     );
 
     // Tests a offset that's larger than the value in the internal node.
     test.equalsEntries(
-      Iter.toArray(btree.range([2], ?([5]))),
+      toEntryArray(Iter.toArray(btree.range([2], ?([5])))),
       [],
     );
   };
 
   func rangeVariousPrefixesWithOffset2(test: TestBuffer) {
     let mem = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.bytesPassthrough(5), BytesConverter.bytesPassthrough(5));
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(mem, BytesConverter.byteArrayConverter(5), BytesConverter.byteArrayConverter(5));
 
     ignore btree.insert([0, 1], []);
     ignore btree.insert([0, 2], []);
@@ -1136,7 +1152,10 @@ module {
     test.equalsNodeType(root.getNodeType(), #Internal);
     test.equalsEntries(
       root.getEntries().toArray(),
-      [([1, 4], []), ([2, 3], [])]
+      [
+        (Blob.fromArray([1, 4]), Blob.fromArray([])),
+        (Blob.fromArray([2, 3]), Blob.fromArray([])),
+      ]
     );
     test.equalsNat(root.getChildren().size(), 3);
 
@@ -1145,11 +1164,11 @@ module {
     test.equalsEntries(
       child_0.getEntries().toArray(),
       [
-        ([0, 1], []),
-        ([0, 2], []),
-        ([0, 3], []),
-        ([0, 4], []),
-        ([1, 2], []),
+        (Blob.fromArray([0, 1]), Blob.fromArray([])),
+        (Blob.fromArray([0, 2]), Blob.fromArray([])),
+        (Blob.fromArray([0, 3]), Blob.fromArray([])),
+        (Blob.fromArray([0, 4]), Blob.fromArray([])),
+        (Blob.fromArray([1, 2]), Blob.fromArray([])),
       ]
     );
 
@@ -1158,11 +1177,11 @@ module {
     test.equalsEntries(
       child_1.getEntries().toArray(),
       [
-        ([1, 6], []),
-        ([1, 8], []),
-        ([1, 10], []),
-        ([2, 1], []),
-        ([2, 2], []),
+        (Blob.fromArray([1, 6]), Blob.fromArray([])),
+        (Blob.fromArray([1, 8]), Blob.fromArray([])),
+        (Blob.fromArray([1, 10]), Blob.fromArray([])),
+        (Blob.fromArray([2, 1]), Blob.fromArray([])),
+        (Blob.fromArray([2, 2]), Blob.fromArray([])),
       ]
     );
 
@@ -1170,39 +1189,39 @@ module {
     test.equalsEntries(
       child_2.getEntries().toArray(),
       [
-        ([2, 4], []),
-        ([2, 5], []),
-        ([2, 6], []),
-        ([2, 7], []),
-        ([2, 8], []),
-        ([2, 9], []),
+        (Blob.fromArray([2, 4]), Blob.fromArray([])),
+        (Blob.fromArray([2, 5]), Blob.fromArray([])),
+        (Blob.fromArray([2, 6]), Blob.fromArray([])),
+        (Blob.fromArray([2, 7]), Blob.fromArray([])),
+        (Blob.fromArray([2, 8]), Blob.fromArray([])),
+        (Blob.fromArray([2, 9]), Blob.fromArray([])),
       ]
     );
 
     // Tests a offset that crosses several nodes.
     test.equalsEntries(
-      Iter.toArray(btree.range([1], ?([4]))),
+      toEntryArray(Iter.toArray(btree.range([1], ?([4])))),
       [
-        ([1, 4], []),
-        ([1, 6], []),
-        ([1, 8], []),
-        ([1, 10], []),
+        (Blob.fromArray([1, 4]), Blob.fromArray([])),
+        (Blob.fromArray([1, 6]), Blob.fromArray([])),
+        (Blob.fromArray([1, 8]), Blob.fromArray([])),
+        (Blob.fromArray([1, 10]), Blob.fromArray([])),
       ]
     );
 
     // Tests a offset that starts from a leaf node, then iterates through the root and right
     // sibling.
     test.equalsEntries(
-      Iter.toArray(btree.range([2], ?([2]))),
+      toEntryArray(Iter.toArray(btree.range([2], ?([2])))),
       [
-        ([2, 2], []),
-        ([2, 3], []),
-        ([2, 4], []),
-        ([2, 5], []),
-        ([2, 6], []),
-        ([2, 7], []),
-        ([2, 8], []),
-        ([2, 9], []),
+        (Blob.fromArray([2, 2]), Blob.fromArray([])),
+        (Blob.fromArray([2, 3]), Blob.fromArray([])),
+        (Blob.fromArray([2, 4]), Blob.fromArray([])),
+        (Blob.fromArray([2, 5]), Blob.fromArray([])),
+        (Blob.fromArray([2, 6]), Blob.fromArray([])),
+        (Blob.fromArray([2, 7]), Blob.fromArray([])),
+        (Blob.fromArray([2, 8]), Blob.fromArray([])),
+        (Blob.fromArray([2, 9]), Blob.fromArray([])),
       ]
     );
   };

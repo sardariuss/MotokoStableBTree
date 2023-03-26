@@ -9,6 +9,7 @@ import Stack "mo:base/Stack";
 import Array "mo:base/Array";
 import Nat8 "mo:base/Nat8";
 import Order "mo:base/Order";
+import Blob "mo:base/Blob";
 
 module {
 
@@ -132,7 +133,7 @@ module {
 
                   // Take the entry from the node. It's swapped with an empty element to
                   // avoid cloning.
-                  let entry = node.swapEntry(Nat64.toNat(entry_idx), ([], []));
+                  let entry = node.swapEntry(Nat64.toNat(entry_idx), (Blob.fromArray([]), Blob.fromArray([])));
 
                   // Add to the cursors the next element to be traversed.
                   cursors_.push(#Node {
@@ -150,7 +151,7 @@ module {
                   switch(prefix_){
                     case(null) {};
                     case(?prefix){
-                      if (not Utils.isPrefixOf(prefix, entry.0, Nat8.equal)){
+                      if (not Utils.isPrefixOf(prefix, Blob.toArray(entry.0), Nat8.equal)){
                         // Clear all cursors to avoid needless work in subsequent calls.
                         cursors_ := Stack.Stack<Cursor>();
                         return null;
@@ -160,7 +161,7 @@ module {
                           let prefix_with_offset = Utils.toBuffer<Nat8>(prefix);
                           prefix_with_offset.append(Utils.toBuffer<Nat8>(offset));
                           // Clear all cursors to avoid needless work in subsequent calls.
-                          if (Order.isLess(Node.compareEntryKeys(entry.0, prefix_with_offset.toArray()))){  
+                          if (Order.isLess(Node.compareEntryKeys(entry.0, Blob.fromArray(prefix_with_offset.toArray())))){  
                             cursors_ := Stack.Stack<Cursor>();
                             return null;
                           };

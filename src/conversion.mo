@@ -23,9 +23,9 @@ module {
   // From there you can easily get to blobs if necessary with the Blob package
   //////////////////////////////////////////////////////////////////////
 
-  public func nat64ToBytes(x : Nat64) : [Nat8] {
+  public func nat64ToBytes(x : Nat64) : Blob {
     
-    [ Nat8.fromNat(Nat64.toNat((x >> 56) & (255))),
+    let array = [ Nat8.fromNat(Nat64.toNat((x >> 56) & (255))),
     Nat8.fromNat(Nat64.toNat((x >> 48) & (255))),
     Nat8.fromNat(Nat64.toNat((x >> 40) & (255))),
     Nat8.fromNat(Nat64.toNat((x >> 32) & (255))),
@@ -33,9 +33,23 @@ module {
     Nat8.fromNat(Nat64.toNat((x >> 16) & (255))),
     Nat8.fromNat(Nat64.toNat((x >> 8) & (255))),
     Nat8.fromNat(Nat64.toNat((x & 255))) ];
+    Blob.fromArray(array);
   };
 
-  public func nat32ToBytes(x : Nat32) : [Nat8] {
+  public func nat64ToByteArray(x : Nat64) : [Nat8] {
+    
+    let array = [ Nat8.fromNat(Nat64.toNat((x >> 56) & (255))),
+    Nat8.fromNat(Nat64.toNat((x >> 48) & (255))),
+    Nat8.fromNat(Nat64.toNat((x >> 40) & (255))),
+    Nat8.fromNat(Nat64.toNat((x >> 32) & (255))),
+    Nat8.fromNat(Nat64.toNat((x >> 24) & (255))),
+    Nat8.fromNat(Nat64.toNat((x >> 16) & (255))),
+    Nat8.fromNat(Nat64.toNat((x >> 8) & (255))),
+    Nat8.fromNat(Nat64.toNat((x & 255))) ];
+    array;
+  };
+
+  public func nat32ToByteArray(x : Nat32) : [Nat8] {
     
     [ Nat8.fromNat(Nat32.toNat((x >> 24) & (255))),
     Nat8.fromNat(Nat32.toNat((x >> 16) & (255))),
@@ -43,41 +57,62 @@ module {
     Nat8.fromNat(Nat32.toNat((x & 255))) ];
   };
 
-  /// Returns [Nat8] of size 4 of the Nat16
-  public func nat16ToBytes(x : Nat16) : [Nat8] {
+  public func nat32ToBytes(x : Nat32) : Blob {
     
-    [ Nat8.fromNat(Nat16.toNat((x >> 8) & (255))),
+    let array = [ Nat8.fromNat(Nat32.toNat((x >> 24) & (255))),
+    Nat8.fromNat(Nat32.toNat((x >> 16) & (255))),
+    Nat8.fromNat(Nat32.toNat((x >> 8) & (255))),
+    Nat8.fromNat(Nat32.toNat((x & 255))) ];
+    Blob.fromArray(array);
+  };
+
+  /// Returns Blob of size 4 of the Nat16
+  public func nat16ToBytes(x : Nat16) : Blob {
+    
+    let array = [ Nat8.fromNat(Nat16.toNat((x >> 8) & (255))),
     Nat8.fromNat(Nat16.toNat((x & 255))) ];
+    Blob.fromArray(array);
   };
 
-  public func bytesToNat16(bytes: [Nat8]) : Nat16{
+  public func bytesToNat16(bytes: Blob) : Nat16{
+
+    let array = Blob.toArray(bytes);
+    (Nat16.fromNat(Nat8.toNat(array[0])) << 8) +
+    (Nat16.fromNat(Nat8.toNat(array[1])));
+  };
+
+  public func byteArrayToNat32(array: [Nat8]) : Nat32{
+
+    (Nat32.fromNat(Nat8.toNat(array[0])) << 24) +
+    (Nat32.fromNat(Nat8.toNat(array[1])) << 16) +
+    (Nat32.fromNat(Nat8.toNat(array[2])) << 8) +
+    (Nat32.fromNat(Nat8.toNat(array[3])));
+  };
+
+  public func bytesToNat32(bytes: Blob) : Nat32{
+
+    let array = Blob.toArray(bytes);
+    (Nat32.fromNat(Nat8.toNat(array[0])) << 24) +
+    (Nat32.fromNat(Nat8.toNat(array[1])) << 16) +
+    (Nat32.fromNat(Nat8.toNat(array[2])) << 8) +
+    (Nat32.fromNat(Nat8.toNat(array[3])));
+  };
+
+  public func bytesToNat64(bytes: Blob) : Nat64{
     
-    (Nat16.fromNat(Nat8.toNat(bytes[0])) << 8) +
-    (Nat16.fromNat(Nat8.toNat(bytes[1])));
-  };
-
-  public func bytesToNat32(bytes: [Nat8]) : Nat32{
-    
-    (Nat32.fromNat(Nat8.toNat(bytes[0])) << 24) +
-    (Nat32.fromNat(Nat8.toNat(bytes[1])) << 16) +
-    (Nat32.fromNat(Nat8.toNat(bytes[2])) << 8) +
-    (Nat32.fromNat(Nat8.toNat(bytes[3])));
-  };
-
-  public func bytesToNat64(bytes: [Nat8]) : Nat64{
-    
-    (Nat64.fromNat(Nat8.toNat(bytes[0])) << 56) +
-    (Nat64.fromNat(Nat8.toNat(bytes[1])) << 48) +
-    (Nat64.fromNat(Nat8.toNat(bytes[2])) << 40) +
-    (Nat64.fromNat(Nat8.toNat(bytes[3])) << 32) +
-    (Nat64.fromNat(Nat8.toNat(bytes[4])) << 24) +
-    (Nat64.fromNat(Nat8.toNat(bytes[5])) << 16) +
-    (Nat64.fromNat(Nat8.toNat(bytes[6])) << 8) +
-    (Nat64.fromNat(Nat8.toNat(bytes[7])));
+    let array = Blob.toArray(bytes);
+    (Nat64.fromNat(Nat8.toNat(array[0])) << 56) +
+    (Nat64.fromNat(Nat8.toNat(array[1])) << 48) +
+    (Nat64.fromNat(Nat8.toNat(array[2])) << 40) +
+    (Nat64.fromNat(Nat8.toNat(array[3])) << 32) +
+    (Nat64.fromNat(Nat8.toNat(array[4])) << 24) +
+    (Nat64.fromNat(Nat8.toNat(array[5])) << 16) +
+    (Nat64.fromNat(Nat8.toNat(array[6])) << 8) +
+    (Nat64.fromNat(Nat8.toNat(array[7])));
   };
 
 
-  public func natToBytes(n : Nat) : [Nat8] {
+  public func natToBytes(n : Nat) : Blob {
     
     var a : Nat8 = 0;
     var b : Nat = n;
@@ -89,14 +124,15 @@ module {
       bytes := List.push<Nat8>(a, bytes);
       test := b > 0;
     };
-    List.toArray<Nat8>(bytes);
+    Blob.fromArray(List.toArray<Nat8>(bytes));
   };
 
-  public func bytesToNat(bytes : [Nat8]) : Nat {
+  public func bytesToNat(bytes : Blob) : Nat {
     
+    let array = Blob.toArray(bytes);
     var n : Nat = 0;
     var i = 0;
-    Array.foldRight<Nat8, ()>(bytes, (), func (byte, _) {
+    Array.foldRight<Nat8, ()>(array, (), func (byte, _) {
       n += Nat8.toNat(byte) * 256 ** i;
       i += 1;
       return;
@@ -104,7 +140,7 @@ module {
     return n;
   };
 
-  public func textToByteBuffer(_text : Text) : Buffer.Buffer<Nat8>{
+  public func textToBytes(_text : Text) : Blob{
     
     let result : Buffer.Buffer<Nat8> = Buffer.Buffer<Nat8>((_text.size() * 4) +4);
     for(thisChar in _text.chars()){
@@ -112,12 +148,7 @@ module {
         result.add(thisByte);
       };
     };
-    return result;
-  };
-
-  public func textToBytes(_text : Text) : [Nat8]{
-    
-    return textToByteBuffer(_text).toArray();
+    return Blob.fromArray(result.toArray());
   };
 
   //encodes a string it to a giant int
@@ -149,52 +180,54 @@ module {
     };
   };
 
-  public func bytesToText(_bytes : [Nat8]) : Text{
+  public func bytesToText(_bytes : Blob) : Text{
     
+    let array = Blob.toArray(_bytes);
     var result : Text = "";
     var aChar : [var Nat8] = [var 0, 0, 0, 0];
 
     for(thisChar in Iter.range(0,_bytes.size())){
       if(thisChar > 0 and thisChar % 4 == 0){
-        aChar[0] := _bytes[thisChar-4];
-        aChar[1] := _bytes[thisChar-3];
-        aChar[2] := _bytes[thisChar-2];
-        aChar[3] := _bytes[thisChar-1];
-        result := result # Char.toText(Char.fromNat32(bytesToNat32(Array.freeze<Nat8>(aChar))));
+        aChar[0] := array[thisChar-4];
+        aChar[1] := array[thisChar-3];
+        aChar[2] := array[thisChar-2];
+        aChar[3] := array[thisChar-1];
+        result := result # Char.toText(Char.fromNat32(byteArrayToNat32(Array.freeze<Nat8>(aChar))));
       };
     };
     return result;
   };
 
-  public func principalToBytes(_principal: Principal) : [Nat8]{
+  public func principalToBytes(_principal: Principal) : Blob{
     
-    return Blob.toArray(Principal.toBlob(_principal));
+    return Principal.toBlob(_principal);
   };
 
-  public func bytesToPrincipal(_bytes: [Nat8]) : Principal{
+  public func bytesToPrincipal(_bytes: Blob) : Principal{
     
-    return Principal.fromBlob(Blob.fromArray(_bytes));
+    return Principal.fromBlob(_bytes);
   };
 
-  public func boolToBytes(_bool : Bool) : [Nat8]{
+  public func boolToBytes(_bool : Bool) : Blob {
     
     if(_bool == true){
-      return [1:Nat8];
+      return Blob.fromArray([1:Nat8]);
     } else {
-      return [0:Nat8];
+      return Blob.fromArray([0:Nat8]);
     };
   };
 
-  public func bytesToBool(_bytes : [Nat8]) : Bool{
+  public func bytesToBool(_bytes : Blob) : Bool{
     
-    if(_bytes[0] == 0){
+    let _array = Blob.toArray(_bytes);
+    if(_array[0] == 0){
       return false;
     } else {
       return true;
     };
   };
 
-  public func intToBytes(n : Int) : [Nat8]{
+  public func intToBytes(n : Int) : Blob{
     
     var a : Nat8 = 0;
     var c : Nat8 = if(n < 0){1}else{0};
@@ -209,28 +242,30 @@ module {
     };
     let result = Utils.toBuffer<Nat8>([c]);
     result.append(Utils.toBuffer<Nat8>(List.toArray<Nat8>(bytes)));
-    result.toArray();
+    Blob.fromArray(result.toArray());
   };
 
-  public func bytesToInt(_bytes : [Nat8]) : Int{
+  public func bytesToInt(_bytes : Blob) : Int{
     
+    let _array = Blob.toArray(_bytes);
     var n : Int = 0;
     var i = 0;
-    let natBytes = Array.tabulate<Nat8>(_bytes.size() - 2, func(idx){_bytes[idx+1]});
+    let natBytes = Array.tabulate<Nat8>(_bytes.size() - 2, func(idx){_array[idx+1]});
 
     Array.foldRight<Nat8, ()>(natBytes, (), func (byte, _) {
       n += Nat8.toNat(byte) * 128 ** i;
       i += 1;
       return;
     });
-    if(_bytes[0]==1){
+    if(_array[0]==1){
       n *= -1;
     };
     return n;
   };
 
-  public func bytesToNat64Array(array: [Nat8]) : [Nat64] {
-    assert(array.size() % 8 == 0);
+  public func bytesToNat64Array(bytes: Blob) : [Nat64] {
+    assert(bytes.size() % 8 == 0);
+    let array = Blob.toArray(bytes);
     let size = array.size() / 8;
     let buffer = Buffer.Buffer<Nat64>(size);
     for (idx in Iter.range(0, size - 1)){
@@ -247,12 +282,12 @@ module {
     buffer.toArray();
   };
 
-  public func nat64ArrayToBytes(array: [Nat64]) : [Nat8] {
+  public func nat64ArrayToBytes(array: [Nat64]) : Blob {
     let buffer = Buffer.Buffer<[Nat8]>(array.size() * 8);
     for (nat64 in Array.vals(array)){
-      buffer.add(nat64ToBytes(nat64));
+      buffer.add(nat64ToByteArray(nat64));
     };
-    Array.flatten(buffer.toArray());
+    Blob.fromArray(Array.flatten(buffer.toArray()));
   };
 
 };

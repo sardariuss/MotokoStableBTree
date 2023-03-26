@@ -18,7 +18,7 @@ module {
 
     // Iterate on leaf
     let memory = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(memory, BytesConverter.bytesPassthrough(1), BytesConverter.bytesPassthrough(1));
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(memory, BytesConverter.byteArrayConverter(1), BytesConverter.byteArrayConverter(1));
 
     for (i in Iter.range(0, Nat64.toNat(Node.getCapacity() - 1))){
       ignore btree.insert([Nat8.fromNat(i)], [Nat8.fromNat(i + 1)]);
@@ -38,7 +38,7 @@ module {
 
     // Iterate on leaf
     let memory = Memory.VecMemory();
-    let btree = BTreeMap.new<[Nat8], [Nat8]>(memory, BytesConverter.bytesPassthrough(1), BytesConverter.bytesPassthrough(1));
+    let btree = BTreeMap.new<[Nat8], [Nat8]>(memory, BytesConverter.byteArrayConverter(1), BytesConverter.byteArrayConverter(1));
 
     // Insert the elements in reverse order.
     for (i in Iter.revRange(99, 0)){
