@@ -2,7 +2,7 @@ import Constants "constants";
 import Utils "utils";
 import Types "types";
 
-import StableMemory "mo:base/ExperimentalStableMemory";
+import Region "mo:base/Region";
 import Blob "mo:base/Blob";
 import Int64 "mo:base/Int64";
 import Buffer "mo:base/Buffer";
@@ -64,22 +64,22 @@ module {
     memory.read(address, size);
   };
 
-  public let STABLE_MEMORY = object {
+  public let STABLE_MEMORY = class(r : Region) : Memory {
     public func size() : Nat64 { 
-      StableMemory.size(); 
+      Region.size(r); 
     };
     public func grow(pages: Nat64) : Int64 {
-      let old_size = StableMemory.grow(pages);
+      let old_size = Region.grow(r, pages);
       if (old_size == 0xFFFF_FFFF_FFFF_FFFF){
         return -1;
       };
       Int64.fromNat64(old_size);
     };
     public func write(address: Nat64, bytes: [Nat8]) {
-      StableMemory.storeBlob(address, Blob.fromArray(bytes));
+      Region.storeBlob(r, address, Blob.fromArray(bytes));
     };
     public func read(address: Nat64, size: Nat) : [Nat8] {
-      Blob.toArray(StableMemory.loadBlob(address, size));
+      Blob.toArray(Region.loadBlob(r, address, size));
     };
   };
 
