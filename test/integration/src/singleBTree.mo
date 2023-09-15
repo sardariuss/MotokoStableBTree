@@ -8,6 +8,7 @@ import Result "mo:base/Result";
 import Array "mo:base/Array";
 import Buffer "mo:base/Buffer";
 import Iter "mo:base/Iter";
+import Region "mo:base/Region";
 
 actor class SingleBTree() {
   
@@ -24,7 +25,7 @@ actor class SingleBTree() {
   let MAX_VALUE_SIZE : Nat32 = 100;
 
   let btreemap_ = StableBTree.init<K, V>(
-    Memory.STABLE_MEMORY,
+    Memory.STABLE_MEMORY(Region.new()),
     BytesConverter.NAT32_CONVERTER,
     BytesConverter.textConverter(MAX_VALUE_SIZE)
   );

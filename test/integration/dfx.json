@@ -1,7 +1,6 @@
 {
   "version": 1,
-  "dfx": "0.11.2",
-  "canisters": {
+    "canisters": {
     "singleBTree": {
       "type": "motoko",
       "main": "src/singleBTree.mo"
