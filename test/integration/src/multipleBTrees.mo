@@ -13,6 +13,7 @@ import Nat8 "mo:base/Nat8";
 import Nat32 "mo:base/Nat32";
 import TrieSet "mo:base/TrieSet";
 import Trie "mo:base/Trie";
+import Region "mo:base/Region";
 
 actor class MultipleBTrees() {
   
@@ -32,7 +33,8 @@ actor class MultipleBTrees() {
   let MAX_VALUE_SIZE : Nat32 = 100;
 
   // The memory manager
-  let memory_manager_ = MemoryManager.init(Memory.STABLE_MEMORY);
+  let region = Region.new();
+  let memory_manager_ = MemoryManager.init(Memory.STABLE_MEMORY(region));
 
   // The BTreeMap identifiers
   var identifiers_ = TrieSet.empty<MemoryId>();

@@ -1,5 +1,5 @@
 import { HttpAgent, Actor } from "@dfinity/agent";
-import { idlFactory } from "./.dfx/local/canisters/singleBTree/singleBTree.did.js";
+import { idlFactory, canisterId } from "./src/declarations/singleBTree/index.js";
 import fetch from "node-fetch";
 import { test } from "tape";
 // From https://stackoverflow.com/a/74018376/6021706
@@ -11,7 +11,7 @@ const canister_ids = require("./.dfx/local/canister_ids.json");
 global.fetch = fetch;
 
 const agent = new HttpAgent({
-  host: "http://127.0.0.1:4943/"
+  host: "http://localhost:4943/"
 });
 
 agent.fetchRootKey().catch((err) => {
@@ -21,7 +21,7 @@ agent.fetchRootKey().catch((err) => {
 
 const single_b_tree = Actor.createActor(idlFactory, {
   agent: agent,
-  canisterId: canister_ids["singleBTree"]["local"]
+  canisterId: canisterId
 });
 
 const NUM_INSERTIONS = 5000;
