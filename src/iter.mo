@@ -10,6 +10,7 @@ import Array "mo:base/Array";
 import Nat8 "mo:base/Nat8";
 import Order "mo:base/Order";
 import Blob "mo:base/Blob";
+import Buffer "mo:base/Buffer";
 
 module {
 
@@ -161,7 +162,7 @@ module {
                           let prefix_with_offset = Utils.toBuffer<Nat8>(prefix);
                           prefix_with_offset.append(Utils.toBuffer<Nat8>(offset));
                           // Clear all cursors to avoid needless work in subsequent calls.
-                          if (Order.isLess(Node.compareEntryKeys(entry.0, Blob.fromArray(prefix_with_offset.toArray())))){  
+                          if (Order.isLess(Node.compareEntryKeys(entry.0, Blob.fromArray(Buffer.toArray(prefix_with_offset))))){  
                             cursors_ := Stack.Stack<Cursor>();
                             return null;
                           };

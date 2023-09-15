@@ -89,8 +89,8 @@ module {
 
     Node({
       address;
-      entries = entries.toArray();
-      children = children.toArray();
+      entries = Buffer.toArray(entries);
+      children = Buffer.toArray(children);
       node_type = getNodeType(header);
       max_key_size;
       max_value_size;
@@ -350,7 +350,7 @@ module {
     };
 
     func getKeys() : [Blob] {
-      Array.map(entries_.toArray(), func(entry: Entry) : Blob { entry.0; });
+      Array.map(Buffer.toArray(entries_), func(entry: Entry) : Blob { entry.0; });
     };
 
     public func entriesToText() : Text {

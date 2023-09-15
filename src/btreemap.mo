@@ -621,7 +621,7 @@ module {
               if (node.getEntries().size() == 0) {
                 // Can only happen if this node is root.
                 assert(node.getAddress() == root_addr_);
-                assert(node.getChildren().toArray() == [new_child.getAddress()]);
+                assert(Buffer.toArray(node.getChildren()) == [new_child.getAddress()]);
 
                 root_addr_ := new_child.getAddress();
 
@@ -870,7 +870,7 @@ module {
             pivot.append(Utils.toBuffer(offset));
           };
         };
-        let idx = switch(node.getKeyIdx(Blob.fromArray(pivot.toArray()))){
+        let idx = switch(node.getKeyIdx(Blob.fromArray(Buffer.toArray(pivot)))){
           case(#err(idx)) { idx; };
           case(#ok(idx)) { idx; };
         };
@@ -904,11 +904,11 @@ module {
             switch(offset) {
               case(?offset) {
                 return Iter.newWithPrefixAndOffset(
-                  self, prefix, offset, cursors.toArray()
+                  self, prefix, offset, Buffer.toArray(cursors)
                 );
               };
               case(null) {
-                return Iter.newWithPrefix(self, prefix, cursors.toArray());
+                return Iter.newWithPrefix(self, prefix, Buffer.toArray(cursors));
               };
             };
           };

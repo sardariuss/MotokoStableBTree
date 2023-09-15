@@ -148,7 +148,7 @@ module {
         result.add(thisByte);
       };
     };
-    return Blob.fromArray(result.toArray());
+    return Blob.fromArray(Buffer.toArray(result));
   };
 
   //encodes a string it to a giant int
@@ -242,7 +242,7 @@ module {
     };
     let result = Utils.toBuffer<Nat8>([c]);
     result.append(Utils.toBuffer<Nat8>(List.toArray<Nat8>(bytes)));
-    Blob.fromArray(result.toArray());
+    Blob.fromArray(Buffer.toArray(result));
   };
 
   public func bytesToInt(_bytes : Blob) : Int{
@@ -279,7 +279,7 @@ module {
         (Nat64.fromNat(Nat8.toNat(array[idx + 6])) << 8) +
         (Nat64.fromNat(Nat8.toNat(array[idx + 7]))));
     };
-    buffer.toArray();
+    Buffer.toArray(buffer);
   };
 
   public func nat64ArrayToBytes(array: [Nat64]) : Blob {
@@ -287,7 +287,7 @@ module {
     for (nat64 in Array.vals(array)){
       buffer.add(nat64ToByteArray(nat64));
     };
-    Blob.fromArray(Array.flatten(buffer.toArray()));
+    Blob.fromArray(Array.flatten(Buffer.toArray(buffer)));
   };
 
 };

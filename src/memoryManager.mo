@@ -428,7 +428,7 @@ module {
           Nat64.toNat(length),
         )));
       };
-      Blob.fromArray(Array.flatten(buffer.toArray()));
+      Blob.fromArray(Array.flatten(Buffer.toArray(buffer)));
     };
 
     // Initializes a [`BucketIterator`].
@@ -443,7 +443,7 @@ module {
           address = offset;
           length = Nat64.fromNat(length);
         },
-        buckets.toArray(),
+        Buffer.toArray(buckets),
         bucketSizeInBytes()
       );
     };
