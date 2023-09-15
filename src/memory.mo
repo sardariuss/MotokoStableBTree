@@ -64,7 +64,7 @@ module {
     memory.read(address, size);
   };
 
-  public let STABLE_MEMORY = class(r : Region) : Memory {
+  class STABLE_MEMORY(r : Region) : Memory {
     public func size() : Nat64 { 
       Region.size(r); 
     };
