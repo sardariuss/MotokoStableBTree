@@ -30,7 +30,7 @@ module {
     for(val in right.vals()){
       buffer.add(val);
     };
-    return buffer.toArray();
+    return Buffer.toArray(buffer);
   };
 
   /// Splits the buffers into two at the given index.

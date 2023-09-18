@@ -1,4 +1,13 @@
-.vessel
-*.wasm
+# dfx temporary files
+.env
 .dfx/
+
+# frontend code
 node_modules/
+dist/
+
+# mops
+.mops/
+
+# generated files
+test/integration/src/declarations/

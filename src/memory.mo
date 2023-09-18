@@ -27,7 +27,7 @@ module {
   };
 
   /// Writes the bytes at the specified address, growing the memory size if needed.
-  public func safeWrite(memory: Memory, address: Nat64, bytes: [Nat8]) : Result<(), GrowFailed> {
+  public func safeWrite(memory: Memory, address: Nat64, bytes: Blob) : Result<(), GrowFailed> {
     // Traps on overflow.
     let offset = address + Nat64.fromNat(bytes.size());
     // Compute the number of pages required.
@@ -48,7 +48,7 @@ module {
   };
 
   /// Like [safe_write], but traps if the memory.grow fails.
-  public func write(memory: Memory, address: Nat64, bytes: [Nat8]) {
+  public func write(memory: Memory, address: Nat64, bytes: Blob) {
     switch(safeWrite(memory, address, bytes)){
       case(#err({current_size; delta})){
         Debug.trap("Failed to grow memory from " # Nat64.toText(current_size) 
@@ -60,7 +60,7 @@ module {
   };
 
   /// Reads the bytes at the specified address, traps if exceeds memory size.
-  public func read(memory: Memory, address: Nat64, size: Nat) : [Nat8] {
+  public func read(memory: Memory, address: Nat64, size: Nat) : Blob {
     memory.read(address, size);
   };
 
@@ -75,11 +75,11 @@ module {
       };
       Int64.fromNat64(old_size);
     };
-    public func write(address: Nat64, bytes: [Nat8]) {
-      Region.storeBlob(r, address, Blob.fromArray(bytes));
+    public func write(address: Nat64, bytes: Blob) {
+      Region.storeBlob(r, address, bytes);
     };
-    public func read(address: Nat64, size: Nat) : [Nat8] {
-      Blob.toArray(Region.loadBlob(r, address, size));
+    public func read(address: Nat64, size: Nat) : Blob {
+      Region.loadBlob(r, address, size);
     };
   };
 
@@ -108,7 +108,7 @@ module {
       return Int64.fromIntWrap(Nat64.toNat(size));
     };
 
-    public func read(address: Nat64, size: Nat) : [Nat8] {
+    public func read(address: Nat64, size: Nat) : Blob {
       // Traps on overflow.
       let offset = Nat64.toNat(address) + size;
       // Cannot read pass the memory buffer size.
@@ -120,18 +120,21 @@ module {
       for (idx in Iter.range(Nat64.toNat(address), offset - 1)){
         bytes.add(buffer_.get(idx));
       };
-      bytes.toArray();
+      Blob.fromArray(Buffer.toArray(bytes));
     };
 
-    public func write(address: Nat64, bytes: [Nat8]) {
+    public func write(address: Nat64, bytes: Blob) {
       let offset = Nat64.toNat(address) + bytes.size();
       // Check that the bytes fit into the buffer.
       if (offset > buffer_.size()){
         Debug.trap("write: out of bounds");
       };
       // Copy the given bytes in the memory buffer.
-      for (idx in Array.keys(bytes)){
-        buffer_.put(Nat64.toNat(address) + idx, bytes[idx]);
+      let array = Blob.toArray(bytes);
+      var idx : Nat = 0;
+      for (val in Array.vals(array)){
+        buffer_.put(Nat64.toNat(address) + idx, val);
+        idx := idx + 1;
       };
     };
 

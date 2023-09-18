@@ -184,21 +184,21 @@ module {
   let SIZE_HEADER : Nat64 = 2080;
 
   public func saveManagerHeader(header: Header, addr: Address, memory: Memory) {
-    Memory.write(memory, addr                     ,                                               header.magic);
-    Memory.write(memory, addr + 3                 ,                                           [header.version]);
+    Memory.write(memory, addr                     ,                               Blob.fromArray(header.magic));
+    Memory.write(memory, addr + 3                 ,                           Blob.fromArray([header.version]));
     Memory.write(memory, addr + 3 + 1             ,      Conversion.nat16ToBytes(header.num_allocated_buckets));
     Memory.write(memory, addr + 3 + 1 + 2         ,       Conversion.nat16ToBytes(header.bucket_size_in_pages));
-    Memory.write(memory, addr + 3 + 1 + 2 + 2     ,                                           header._reserved);
+    Memory.write(memory, addr + 3 + 1 + 2 + 2     ,                           Blob.fromArray(header._reserved));
     Memory.write(memory, addr + 3 + 1 + 2 + 2 + 32, Conversion.nat64ArrayToBytes(header.memory_sizes_in_pages));
   };
 
   public func loadManagerHeader(addr: Address, memory: Memory) : Header {
     {
-      magic =                                              Memory.read(memory, addr,                         3);
-      version =                                            Memory.read(memory, addr + 3,                     1)[0];
+      magic =                                 Blob.toArray(Memory.read(memory, addr,                         3));
+      version =                               Blob.toArray(Memory.read(memory, addr + 3,                     1))[0];
       num_allocated_buckets =      Conversion.bytesToNat16(Memory.read(memory, addr + 3 + 1,                 2));
       bucket_size_in_pages =       Conversion.bytesToNat16(Memory.read(memory, addr + 3 + 1 + 2,             2));
-      _reserved =                                          Memory.read(memory, addr + 3 + 1 + 2 + 2,        32);
+      _reserved =                             Blob.toArray(Memory.read(memory, addr + 3 + 1 + 2 + 2,        32));
       memory_sizes_in_pages = Conversion.bytesToNat64Array(Memory.read(memory, addr + 3 + 1 + 2 + 2 + 32, 2040));
     };
   };
@@ -219,11 +219,11 @@ module {
       memory_manager_.grow(id_, pages);
     };
 
-    public func read(offset: Nat64, size: Nat) : [Nat8] {
+    public func read(offset: Nat64, size: Nat) : Blob {
       memory_manager_.read(id_, offset, size);
     };
 
-    public func write(offset: Nat64, src: [Nat8]) {
+    public func write(offset: Nat64, src: Blob) {
       memory_manager_.write(id_, offset, src);
     };
   
@@ -237,7 +237,7 @@ module {
 
     // Check if the magic in the memory corresponds to this object.
     let dst = Memory.read(memory, 0, 3);
-    if (dst != Blob.toArray(Text.encodeUtf8(MAGIC))) {
+    if (dst != Text.encodeUtf8(MAGIC)) {
       // No memory manager found. Create a new instance.
       return newInner(memory, bucket_size_in_pages);
     } else {
@@ -268,7 +268,7 @@ module {
     Memory.write(
       memory, 
       bucketAllocationsAddress(0),
-      Array.tabulate<Nat8>(Nat8.toNat(MAX_NUM_MEMORIES), func(index: Nat) : Nat8 { UNALLOCATED_BUCKET_MARKER; })
+      Blob.fromArray(Array.tabulate<Nat8>(Nat8.toNat(MAX_NUM_MEMORIES), func(index: Nat) : Nat8 { UNALLOCATED_BUCKET_MARKER; }))
     );
 
     mem_mgr;
@@ -284,13 +284,14 @@ module {
 
     let memory_buckets = RBTree.RBTree<MemoryId, Buffer<BucketId>>(Nat8.compare);
 
-    for (bucket_idx in Array.keys(buckets)){
-      let memory = buckets[bucket_idx];
+    var bucket_idx : Nat = 0;
+    for (memory in Array.vals(Blob.toArray(buckets))){
       if (memory != UNALLOCATED_BUCKET_MARKER){
         let buckets = Option.get(memory_buckets.get(memory), Buffer.Buffer<BucketId>(1));
         buckets.add(Nat16.fromNat(bucket_idx));
         memory_buckets.put(memory, buckets);
       };
+      bucket_idx := bucket_idx + 1;
     };
 
     MemoryManagerInner(
@@ -370,7 +371,7 @@ module {
         memory_buckets_.put(id, buckets);
 
         // Write in stable store that this bucket belongs to the memory with the provided `id`.
-        Memory.write(memory_, bucketAllocationsAddress(new_bucket_id), [id]);
+        Memory.write(memory_, bucketAllocationsAddress(new_bucket_id), Blob.fromArray([id]));
 
         allocated_buckets_ += 1;
       };
@@ -393,39 +394,41 @@ module {
       Int64.fromNat64(old_size);
     };
 
-    public func write(id: MemoryId, offset: Nat64, src: [Nat8]) {
+    public func write(id: MemoryId, offset: Nat64, src: Blob) {
       verifyId(id);
 
-      if ((offset + Nat64.fromNat(src.size())) > memorySize(id) * Constants.WASM_PAGE_SIZE) {
+      let array = Blob.toArray(src);
+
+      if ((offset + Nat64.fromNat(array.size())) > memorySize(id) * Constants.WASM_PAGE_SIZE) {
         Debug.trap(Nat8.toText(id) # ": write out of bounds");
       };
 
       var bytes_written : Nat = 0;
-      for ({address; length;} in bucketIter(id, offset, src.size())) {
+      for ({address; length;} in bucketIter(id, offset, array.size())) {
         Memory.write(
           memory_,
           address,
-          Array.tabulate<Nat8>(Nat64.toNat(length), func(idx: Nat) : Nat8 { src[bytes_written + idx]; })
+          Blob.fromArray(Array.tabulate<Nat8>(Nat64.toNat(length), func(idx: Nat) : Nat8 { array[bytes_written + idx]; }))
         );
 
         bytes_written += Nat64.toNat(length);
       };
     };
 
-    public func read(id: MemoryId, offset: Nat64, size: Nat) : [Nat8] {
+    public func read(id: MemoryId, offset: Nat64, size: Nat) : Blob {
       verifyId(id);
       if ((offset + Nat64.fromNat(size)) > memorySize(id) * Constants.WASM_PAGE_SIZE) {
         Debug.trap(Nat8.toText(id) # ": read out of bounds");
       };
       let buffer = Buffer.Buffer<[Nat8]>(0);
       for ({address; length;} in bucketIter(id, offset, size)) {
-        buffer.add(Memory.read(
+        buffer.add(Blob.toArray(Memory.read(
           memory_,
           address,
           Nat64.toNat(length),
-        ));
+        )));
       };
-      Array.flatten(buffer.toArray());
+      Blob.fromArray(Array.flatten(Buffer.toArray(buffer)));
     };
 
     // Initializes a [`BucketIterator`].
@@ -440,7 +443,7 @@ module {
           address = offset;
           length = Nat64.fromNat(length);
         },
-        buckets.toArray(),
+        Buffer.toArray(buckets),
         bucketSizeInBytes()
       );
     };
