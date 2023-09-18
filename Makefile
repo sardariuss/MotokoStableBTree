@@ -11,7 +11,7 @@ check-strict:
 	find src -type f -name '*.mo' -print0 | xargs -0 $(shell mocv bin $(moc_version))/moc $(shell mops sources) -Werror --check
 
 test:
-	mops test
+	mops test --mode wasi
 	make -C test/integration
 
 docs:

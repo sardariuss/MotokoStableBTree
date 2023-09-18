@@ -1,14 +1,12 @@
-import { HttpAgent, Actor } from "@dfinity/agent";
-import { ECDSAKeyIdentity } from "@dfinity/identity";
 import { idlFactory, canisterId } from "./src/declarations/singleBTree/index.js";
-import fetch from "node-fetch";
-import { test } from "tape";
 
-global.fetch = fetch;
+import { HttpAgent, Actor }       from "@dfinity/agent";
+import fetch                      from "isomorphic-fetch";
+import { test }                   from "tape";
 
 const agent = new HttpAgent({
   host: "http://localhost:4943/",
-  identity: ECDSAKeyIdentity.generate()
+  fetch: fetch
 });
 
 agent.fetchRootKey().catch((err) => {
