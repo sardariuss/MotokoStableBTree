@@ -11,16 +11,16 @@ module {
   public type Bytes = Nat64;
 
   public type BytesConverter<T> = {
-    fromBytes: ([Nat8]) -> T;
-    toBytes: (T) -> [Nat8];
+    fromBytes: (Blob) -> T;
+    toBytes: (T) -> Blob;
     maxSize: () -> Nat32;
   };
 
   public type Memory = {
     size: () -> Nat64;
     grow: (Nat64) -> Int64;
-    write: (Nat64, [Nat8]) -> ();
-    read: (Nat64, Nat) -> [Nat8];
+    write: (Nat64, Blob) -> ();
+    read: (Nat64, Nat) -> Blob;
   };
 
   /// An indicator of the current position in the map.
@@ -40,7 +40,7 @@ module {
   };
 
   // Entries in the node are key-value pairs and both are blobs.
-  public type Entry = ([Nat8], [Nat8]);
+  public type Entry = (Blob, Blob);
 
   public type NodeType = {
     #Leaf;
@@ -59,7 +59,7 @@ module {
     getMin: (Memory) -> Entry;
     isFull: () -> Bool;
     swapEntry: (Nat, Entry) -> Entry;
-    getKeyIdx: ([Nat8]) -> Result<Nat, Nat>;
+    getKeyIdx: (Blob) -> Result<Nat, Nat>;
     getChild: (Nat) -> Address;
     getEntry: (Nat) -> Entry;
     setChildren: (Buffer<Address>) -> ();

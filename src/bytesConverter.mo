@@ -1,14 +1,16 @@
 import Types "types";
 import Conversion "conversion";
 
+import Blob "mo:base/Blob";
+
 module {
 
   // For convenience: from types module
   type BytesConverter<T> = Types.BytesConverter<T>;
   
   public let NAT8_CONVERTER : BytesConverter<Nat8> = { 
-    fromBytes = func(bytes: [Nat8]) : Nat8 { return bytes[0]; };
-    toBytes = func(nat8: Nat8) : [Nat8] { return [nat8]; };
+    fromBytes = func(bytes: Blob) : Nat8 { return Blob.toArray(bytes)[0]; };
+    toBytes = func(nat8: Nat8) : Blob { return Blob.fromArray([nat8]); };
     maxSize = func () : Nat32 { 1; };
   };
   
@@ -39,8 +41,8 @@ module {
   };
   
   public let EMPTY_CONVERTER : BytesConverter<()> = { 
-    fromBytes = func(bytes: [Nat8]) : () { return (); };
-    toBytes = func(empty: ()) : [Nat8] { return []; };
+    fromBytes = func(bytes: Blob) : () { return (); };
+    toBytes = func(empty: ()) : Blob { return Blob.fromArray([]); };
     maxSize = func () : Nat32 { 0; };
   };
   
@@ -66,10 +68,18 @@ module {
     };
   };
 
-  public func bytesPassthrough(max_size: Nat32) : BytesConverter<[Nat8]> {
+  public func bytesPassthrough(max_size: Nat32) : BytesConverter<Blob> {
     {
-      fromBytes = func(bytes: [Nat8]) : [Nat8] { bytes; };
-      toBytes = func(bytes: [Nat8]) : [Nat8] { bytes; };
+      fromBytes = func(bytes: Blob) : Blob { bytes; };
+      toBytes = func(bytes: Blob) : Blob { bytes; };
+      maxSize = func () : Nat32 { max_size; };
+    };
+  };
+
+  public func byteArrayConverter(max_size: Nat32) : BytesConverter<[Nat8]> {
+    {
+      fromBytes = func(bytes: Blob) : [Nat8] { Blob.toArray(bytes); };
+      toBytes = func(array: [Nat8]) : Blob { Blob.fromArray(array); };
       maxSize = func () : Nat32 { max_size; };
     };
   };

@@ -1,0 +1,14 @@
+[dependencies]
+base = "0.10.0"
+
+[dev-dependencies]
+matchers = "https://github.com/kritzcreek/motoko-matchers#master"
+test = "1.0.1"
+
+[package]
+name = "StableBTree"
+version = "1.0.0"
+description = "A BTree map that runs on stable memory."
+repository = "https://github.com/sardariuss/MotokoStableBTree"
+keywords = [ "btree", "stable", "map" ]
+license = "MIT"

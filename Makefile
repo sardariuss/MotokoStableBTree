@@ -1,16 +1,18 @@
 .PHONY: check test docs
 
+moc_version = 0.10.0
+
 check:
-	find src -type f -name '*.mo' -print0 | xargs -0 $(shell vessel bin)/moc $(shell vessel sources) --check
+	find src -type f -name '*.mo' -print0 | xargs -0 $(shell mocv bin $(moc_version))/moc $(shell mops sources) --check
 
 all: check-strict
 
 check-strict:
-	find src -type f -name '*.mo' -print0 | xargs -0 $(shell vessel bin)/moc $(shell vessel sources) -Werror --check
+	find src -type f -name '*.mo' -print0 | xargs -0 $(shell mocv bin $(moc_version))/moc $(shell mops sources) -Werror --check
 
 test:
-	make -C test/module
+	mops test
 	make -C test/integration
 
 docs:
-	$(shell vessel bin)/mo-doc
+	$(shell mocv bin $(moc_version))/mo-doc

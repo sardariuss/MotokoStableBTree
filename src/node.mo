@@ -89,8 +89,8 @@ module {
 
     Node({
       address;
-      entries = entries.toArray();
-      children = children.toArray();
+      entries = Buffer.toArray(entries);
+      children = Buffer.toArray(children);
       node_type = getNodeType(header);
       max_key_size;
       max_value_size;
@@ -270,7 +270,7 @@ module {
     /// of the matching key. If the value is not found then `Result::Err` is
     /// returned, containing the index where a matching key could be inserted
     /// while maintaining sorted order.
-    public func getKeyIdx(key: [Nat8]) : Result<Nat, Nat> {
+    public func getKeyIdx(key: Blob) : Result<Nat, Nat> {
       Utils.binarySearch(getKeys(), compareEntryKeys, key);
     };
 
@@ -349,8 +349,8 @@ module {
       entries_.append(entries);
     };
 
-    func getKeys() : [[Nat8]] {
-      Array.map(entries_.toArray(), func(entry: Entry) : [Nat8] { entry.0; });
+    func getKeys() : [Blob] {
+      Array.map(Buffer.toArray(entries_), func(entry: Entry) : Blob { entry.0; });
     };
 
     public func entriesToText() : Text {
@@ -358,13 +358,9 @@ module {
       text_buffer.add("Entries = [");
       for ((key, val) in entries_.vals()){
         text_buffer.add("e([");
-        for (byte in Array.vals(key)){
-          text_buffer.add(Nat8.toText(byte) # " ");
-        };
+        text_buffer.add(Conversion.bytesToText(key));
         text_buffer.add("], [");
-        for (byte in Array.vals(val)){
-          text_buffer.add(Nat8.toText(byte) # " ");
-        };
+        text_buffer.add(Conversion.bytesToText(val));
         text_buffer.add("]), ");
       };
       text_buffer.add("]");
@@ -373,13 +369,13 @@ module {
 
   };
 
-  public func makeEntry(key: [Nat8], value: [Nat8]) : Entry {
+  public func makeEntry(key: Blob, value: Blob) : Entry {
     (key, value);
   };
 
   /// Compare the two entries using their keys
-  public func compareEntryKeys(key_a: [Nat8], key_b: [Nat8]) : Order {
-    Utils.lexicographicallyCompare(key_a, key_b, Nat8.compare);
+  public func compareEntryKeys(key_a: Blob, key_b: Blob) : Order {
+    Blob.compare(key_a, key_b);
   };
 
   /// Deduce the node type based on the node header
@@ -405,18 +401,18 @@ module {
   let SIZE_NODE_HEADER : Nat64 = 7;
 
   func saveNodeHeader(header: NodeHeader, addr: Address, memory: Memory) {
-    Memory.write(memory, addr,                                            header.magic);
-    Memory.write(memory, addr + 3,                                    [header.version]);
-    Memory.write(memory, addr + 3 + 1,                              [header.node_type]);
+    Memory.write(memory, addr,             Blob.fromArray(header.magic)               );
+    Memory.write(memory, addr + 3,         Blob.fromArray([header.version])           );
+    Memory.write(memory, addr + 3 + 1,     Blob.fromArray([header.node_type])         );
     Memory.write(memory, addr + 3 + 1 + 1, Conversion.nat16ToBytes(header.num_entries));
   };
 
   func loadNodeHeader(addr: Address, memory: Memory) : NodeHeader {
     let header = {
-      magic =                               Memory.read(memory, addr,             3);
-      version =                             Memory.read(memory, addr + 3,         1)[0];
-      node_type =                           Memory.read(memory, addr + 3 + 1,     1)[0];
-      num_entries = Conversion.bytesToNat16(Memory.read(memory, addr + 3 + 1 + 1, 2));
+      magic =                               Blob.toArray(Memory.read(memory, addr,             3));
+      version =                             Blob.toArray(Memory.read(memory, addr + 3,         1))[0];
+      node_type =                           Blob.toArray(Memory.read(memory, addr + 3 + 1,     1))[0];
+      num_entries =              Conversion.bytesToNat16(Memory.read(memory, addr + 3 + 1 + 1, 2));
     };
     header;
   };

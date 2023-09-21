@@ -1,14 +1,14 @@
-import StableBTree "../../../src/btreemap";
+import StableBTree      "../../../src/btreemap";
 import StableBTreeTypes "../../../src/types";
-import Conversion "../../../src/conversion";
-import Memory "../../../src/memory";
-import BytesConverter "../../../src/bytesConverter";
+import Conversion       "../../../src/conversion";
+import Memory           "../../../src/memory";
+import BytesConverter   "../../../src/bytesConverter";
 
-import Result "mo:base/Result";
-import Array "mo:base/Array";
-import Buffer "mo:base/Buffer";
-import Iter "mo:base/Iter";
-import Region "mo:base/Region";
+import Result           "mo:base/Result";
+import Array            "mo:base/Array";
+import Buffer           "mo:base/Buffer";
+import Iter             "mo:base/Iter";
+import Region           "mo:base/Region";
 
 actor class SingleBTree() {
   
@@ -24,8 +24,10 @@ actor class SingleBTree() {
   // Arbitrary limitation on text size (in bytes)
   let MAX_VALUE_SIZE : Nat32 = 100;
 
+  stable let region = Region.new();
+
   let btreemap_ = StableBTree.init<K, V>(
-    Memory.STABLE_MEMORY(Region.new()),
+    Memory.RegionMemory(region),
     BytesConverter.NAT32_CONVERTER,
     BytesConverter.textConverter(MAX_VALUE_SIZE)
   );
@@ -63,7 +65,7 @@ actor class SingleBTree() {
       };
     };
     if (buffer.size() > 0){
-      #err(buffer.toArray());
+      #err(Buffer.toArray(buffer));
     } else {
       #ok;
     };
@@ -77,7 +79,7 @@ actor class SingleBTree() {
         case(null) {};
       };
     };
-    buffer.toArray();
+    Buffer.toArray(buffer);
   };
 
   public func containsKeys(keys: [K]) : async Bool {
@@ -97,7 +99,7 @@ actor class SingleBTree() {
         case(null) {};
       };
     };
-    buffer.toArray();
+    Buffer.toArray(buffer);
   };
 
   public func empty() : async () {
