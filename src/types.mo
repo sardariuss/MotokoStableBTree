@@ -11,9 +11,10 @@ module {
   public type Bytes = Nat64;
 
   public type BytesConverter<T> = {
-    fromBytes: (Blob) -> T;
-    toBytes: (T) -> Blob;
-    maxSize: () -> Nat32;
+    from_bytes: (Blob) -> T;
+    to_bytes: (T) -> Blob;
+    max_size: Nat32;
+    nonce: T;
   };
 
   public type Memory = {
@@ -97,17 +98,15 @@ module {
 
   public type IBTreeMap<K, V> = {
     getRootAddr : () -> Address;
-    getKeyConverter : () -> BytesConverter<K>;
-    getValueConverter : () -> BytesConverter<V>;
     getAllocator : () -> IAllocator;
     getLength : () -> Nat64;
     getMemory : () -> Memory;
-    insert : (k: K, v: V) -> Result<?V, InsertError>;
-    get : (key: K) -> ?V;
-    containsKey : (key: K) -> Bool;
+    insert : (k: K, key_converter: BytesConverter<K>, v: V, value_converter: BytesConverter<V>) -> Result<?V, InsertError>;
+    get : (key: K, key_converter: BytesConverter<K>, value_converter: BytesConverter<V>) -> ?V;
+    containsKey : (key: K, key_converter: BytesConverter<K>) -> Bool;
     isEmpty : () -> Bool;
-    remove : (key: K) -> ?V;
-    iter : () -> IIter<K, V>;
+    remove : (key: K, key_converter: BytesConverter<K>, value_converter: BytesConverter<V>) -> ?V;
+    iter : (key_converter: BytesConverter<K>, value_converter: BytesConverter<V>) -> IIter<K, V>;
     loadNode : (address: Address) -> INode;
   };
 
