@@ -1,6 +1,6 @@
-import MemoryManager    "../../src/memoryManager";
-import Memory           "../../src/memory";
-import Constants        "../../src/constants";
+import MemoryManager    "../../src/modules/memoryManager";
+import Memory           "../../src/modules/memory";
+import Constants        "../../src/modules/constants";
 import { Test }         "testableItems";
 
 import { test; suite; } "mo:test";
@@ -23,7 +23,7 @@ suite("MemoryManager test suite", func() {
   func toOptArray<T>(buffer: ?Buffer<T>) : ?[T] {
     switch(buffer){
       case(null) { null; };
-      case(?buffer) { ?buffer.toArray(); };
+      case(?buffer) { ?Buffer.toArray(buffer); };
     };
   };
 

@@ -1,18 +1,18 @@
-import Utils "utils";
+import Utils     "utils";
 
-import Buffer "mo:base/Buffer";
-import Nat8 "mo:base/Nat8";
-import Nat16 "mo:base/Nat16";
-import Nat32 "mo:base/Nat32";
-import Nat64 "mo:base/Nat64";
-import Char "mo:base/Char";
-import Iter "mo:base/Iter";
-import Blob "mo:base/Blob";
+import Buffer    "mo:base/Buffer";
+import Nat8      "mo:base/Nat8";
+import Nat16     "mo:base/Nat16";
+import Nat32     "mo:base/Nat32";
+import Nat64     "mo:base/Nat64";
+import Char      "mo:base/Char";
+import Iter      "mo:base/Iter";
+import Blob      "mo:base/Blob";
 import Principal "mo:base/Principal";
-import List "mo:base/List";
-import Text "mo:base/Text";
-import Int "mo:base/Int";
-import Array "mo:base/Array";
+import List      "mo:base/List";
+import Text      "mo:base/Text";
+import Int       "mo:base/Int";
+import Array     "mo:base/Array";
 
 module {
 

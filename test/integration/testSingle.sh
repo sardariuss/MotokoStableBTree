@@ -41,27 +41,26 @@ function reinstall(canister_id, wasm) {
 // Create a BTree
 let btree_canister = install(file(".dfx/local/canisters/singleBTree/singleBTree.wasm"));
 // Verify it is empty
-call btree_canister.getLength();
-assert _ == (0 : nat64);
+call btree_canister.size();
+assert _ == (0 : nat);
 // Insert a pair of key/value
-call btree_canister.insert(12345, "hello");
-assert _ == variant { ok = null : opt record{} };
+call btree_canister.put(12345, "hello");
 // Verify the Btree contains the pair of key/value
-call btree_canister.getLength();
-assert _ == (1 : nat64);
+call btree_canister.size();
+assert _ == (1 : nat);
 call btree_canister.get(12345);
 assert _ == opt("hello" : text);
 
 // The BTree shall be preserved after an upgrade
 upgrade(btree_canister, file(".dfx/local/canisters/singleBTree/singleBTree.wasm"));
-call btree_canister.getLength();
-assert _ == (1 : nat64);
+call btree_canister.size();
+assert _ == (1 : nat);
 call btree_canister.get(12345);
 assert _ == opt("hello" : text);
 
 // The BTree shall be empty after a reinstall
 reinstall(btree_canister, file(".dfx/local/canisters/singleBTree/singleBTree.wasm"));
-call btree_canister.getLength();
-assert _ == (0 : nat64);
+call btree_canister.size();
+assert _ == (0 : nat);
 call btree_canister.get(12345);
 assert _ == (null : opt record{});

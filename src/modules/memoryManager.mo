@@ -41,23 +41,23 @@
 //! assert_eq!(bytes, vec![4, 5, 6]);
 //! ```
 
-import Constants "constants";
+import Constants  "constants";
 import Conversion "conversion";
-import Types "types";
-import Memory "memory";
+import Types      "types";
+import Memory     "memory";
 
-import RBTree "mo:base/RBTree";
-import Array "mo:base/Array";
-import Nat8 "mo:base/Nat8";
-import Nat16 "mo:base/Nat16";
-import Nat64 "mo:base/Nat64";
-import Int64 "mo:base/Int64";
-import Iter "mo:base/Iter";
-import Blob "mo:base/Blob";
-import Debug "mo:base/Debug";
-import Option "mo:base/Option";
-import Buffer "mo:base/Buffer";
-import Text "mo:base/Text";
+import RBTree     "mo:base/RBTree";
+import Array      "mo:base/Array";
+import Nat8       "mo:base/Nat8";
+import Nat16      "mo:base/Nat16";
+import Nat64      "mo:base/Nat64";
+import Int64      "mo:base/Int64";
+import Iter       "mo:base/Iter";
+import Blob       "mo:base/Blob";
+import Debug      "mo:base/Debug";
+import Option     "mo:base/Option";
+import Buffer     "mo:base/Buffer";
+import Text       "mo:base/Text";
 
 module {
 

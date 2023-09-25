@@ -1,16 +1,16 @@
-import Types "types";
-import Node "node";
+import Types     "types";
+import Node      "node";
 import Constants "constants";
-import Utils "utils";
+import Utils     "utils";
 
-import Nat64 "mo:base/Nat64";
-import Debug "mo:base/Debug";
-import Stack "mo:base/Stack";
-import Array "mo:base/Array";
-import Nat8 "mo:base/Nat8";
-import Order "mo:base/Order";
-import Blob "mo:base/Blob";
-import Buffer "mo:base/Buffer";
+import Nat64     "mo:base/Nat64";
+import Debug     "mo:base/Debug";
+import Stack     "mo:base/Stack";
+import Array     "mo:base/Array";
+import Nat8      "mo:base/Nat8";
+import Order     "mo:base/Order";
+import Blob      "mo:base/Blob";
+import Buffer    "mo:base/Buffer";
 
 module {
 

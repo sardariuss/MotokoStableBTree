@@ -1,4 +1,4 @@
-import Types    "../../src/types";
+import Types    "../../src/modules/types";
 
 import Suite    "mo:matchers/Suite";
 import Matchers "mo:matchers/Matchers";

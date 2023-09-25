@@ -27,7 +27,7 @@ const NUM_CALLS = NUM_INSERTIONS / MAX_BTREE_ITERATIONS;
 
 const btree_insert_test = async (t, keys) => {
   // Verify the btree is empty
-  if (await singleBTree.getLength() != 0n){
+  if (await singleBTree.size() != 0n){
     throw new FatalError("The btree is not empty");
   }
 
@@ -48,7 +48,7 @@ const btree_insert_test = async (t, keys) => {
   t.ok(insert_result);
   
   // Verify the length of the btree
-  t.equal(await singleBTree.getLength(), BigInt(unique_keys.length));
+  t.equal(await singleBTree.size(), BigInt(unique_keys.length));
 
   var get_result = true;
 
@@ -65,7 +65,7 @@ const btree_insert_test = async (t, keys) => {
   t.ok(get_result);
 
   // Empty the btree
-  await singleBTree.empty();
+  await singleBTree.clear();
 };
 
 test('random_insertions', async function (t) {

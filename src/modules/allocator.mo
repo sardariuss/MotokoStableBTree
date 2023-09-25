@@ -1,11 +1,11 @@
-import Types "types";
+import Types      "types";
 import Conversion "conversion";
-import Constants "constants";
-import Memory "memory";
+import Constants  "constants";
+import Memory     "memory";
 
-import Blob "mo:base/Blob";
-import Text "mo:base/Text";
-import Debug "mo:base/Debug";
+import Blob       "mo:base/Blob";
+import Text       "mo:base/Text";
+import Debug      "mo:base/Debug";
 
 module {
 

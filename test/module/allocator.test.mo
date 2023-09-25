@@ -1,7 +1,7 @@
-import Memory           "../../src/memory";
-import Allocator        "../../src/allocator";
-import Constants        "../../src/constants";
-import { Test }         "testableItems";
+import Memory    "../../src/modules/memory";
+import Allocator "../../src/modules/allocator";
+import Constants "../../src/modules/constants";
+import { Test }  "testableItems";
 
 import { test; suite; } "mo:test";
 

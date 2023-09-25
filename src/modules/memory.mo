@@ -1,18 +1,18 @@
 import Constants "constants";
-import Utils "utils";
-import Types "types";
+import Utils     "utils";
+import Types     "types";
 
-import Region "mo:base/Region";
-import Blob "mo:base/Blob";
-import Int64 "mo:base/Int64";
-import Buffer "mo:base/Buffer";
-import Nat64 "mo:base/Nat64";
-import Array "mo:base/Array";
-import Debug "mo:base/Debug";
-import Iter "mo:base/Iter";
-import Text "mo:base/Text";
-import Nat8 "mo:base/Nat8";
-import Result "mo:base/Result";
+import Region    "mo:base/Region";
+import Blob      "mo:base/Blob";
+import Int64     "mo:base/Int64";
+import Buffer    "mo:base/Buffer";
+import Nat64     "mo:base/Nat64";
+import Array     "mo:base/Array";
+import Debug     "mo:base/Debug";
+import Iter      "mo:base/Iter";
+import Text      "mo:base/Text";
+import Nat8      "mo:base/Nat8";
+import Result    "mo:base/Result";
 
 module {
 

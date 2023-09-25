@@ -1,23 +1,23 @@
-import Types "types";
-import Allocator "allocator";
+import Types      "types";
+import Allocator  "allocator";
 import Conversion "conversion";
-import Node "node";
-import Constants "constants";
-import Iter "iter";
-import Utils "utils";
-import Memory "memory";
+import Node       "node";
+import Constants  "constants";
+import Iter       "iter";
+import Utils      "utils";
+import Memory     "memory";
 
-import Result "mo:base/Result";
-import Option "mo:base/Option";
-import Blob "mo:base/Blob";
-import Text "mo:base/Text";
-import Nat32 "mo:base/Nat32";
-import Debug "mo:base/Debug";
-import Array "mo:base/Array";
-import Nat64 "mo:base/Nat64";
-import Order "mo:base/Order";
-import Buffer "mo:base/Buffer";
-import Nat8 "mo:base/Nat8";
+import Result     "mo:base/Result";
+import Option     "mo:base/Option";
+import Blob       "mo:base/Blob";
+import Text       "mo:base/Text";
+import Nat32      "mo:base/Nat32";
+import Debug      "mo:base/Debug";
+import Array      "mo:base/Array";
+import Nat64      "mo:base/Nat64";
+import Order      "mo:base/Order";
+import Buffer     "mo:base/Buffer";
+import Nat8       "mo:base/Nat8";
 
 module {
 
@@ -64,7 +64,7 @@ module {
     };
     
     // The memory already contains a BTreeMap. Load it.
-    return load(memory, key_converter.nonce, value_converter.nonce);
+    return load(memory, key_converter, value_converter);
   };
 
   /// Creates a new instance a `BTreeMap`.
@@ -110,8 +110,8 @@ module {
   /// Loads the map from memory.
   public func load<K, V>(
     memory : Memory,
-    key_nonce: K,
-    value_nonce: V
+    key: { nonce: K },
+    value: { nonce: V },
   ) : BTreeMap<K, V> {
     // Read the header from memory.
     let header = loadBTreeHeader(Constants.NULL, memory);
@@ -122,9 +122,9 @@ module {
     // maxSize function to use the ones from the loaded header.
     BTreeMap({
       root_addr = header.root_addr;
-      key_nonce;
+      key_nonce = key.nonce;
       max_key_size = header.max_key_size;
-      value_nonce;
+      value_nonce = value.nonce;
       max_value_size = header.max_value_size;
       allocator = Allocator.loadAllocator(memory, allocator_addr);
       length = header.length;
