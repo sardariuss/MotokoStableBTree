@@ -17,7 +17,7 @@ actor class SingleBTree() {
   };
 
   public func put(key: Nat32, value: Text) : async ?Text {
-    BTree.put(_btree,n32conv, key, t16conv, value);
+    BTree.put(_btree, n32conv, key, t16conv, value);
   };
 
   public func get(key: Nat32) : async ?Text {
