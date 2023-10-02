@@ -4,6 +4,8 @@ https://forum.dfinity.org/t/icdevs-org-bounty-24-stablebtree-mokoko-up-to-10k/14
 ## Usage
 
 ```
+  import BTree "mo:StableBTree/BTree"
+
   // Arbitrary use of (Nat32, Text) for (key, value) types
   let n32conv = BTree.n32conv;
   let tconv = BTree.tconv(64); // Max 16 characters

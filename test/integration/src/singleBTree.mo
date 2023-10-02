@@ -1,4 +1,4 @@
-import BTree  "../../../src";
+import BTree  "../../../src/BTree";
 
 import Array  "mo:base/Array";
 import Buffer "mo:base/Buffer";
