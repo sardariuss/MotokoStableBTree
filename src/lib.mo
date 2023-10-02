@@ -1,7 +1,6 @@
 import Types          "modules/types";
 import BTreeMap       "modules/btreemap";
 import Memory         "modules/memory";
-import Conversion     "modules/conversion";
 import BytesConverter "modules/bytesConverter";
 
 import Iter           "mo:base/Iter";
@@ -14,7 +13,7 @@ module {
 
   type BytesConverter<T> = Types.BytesConverter<T>;
 
-  public let { n8conv; n16conv; n32conv; n64conv; nconv; iconv; bconv; emptyconv; pconv; tconv; n8aconv; } = BytesConverter;
+  public let { n8conv; n16conv; n32conv; n64conv; nconv; iconv; bconv; emptyconv; pconv; tconv; n8aconv; noconv; } = BytesConverter;
 
   public type BTree<K, V> = {
     region: Region;

@@ -84,7 +84,14 @@ module {
     from_bytes = func(bytes: Blob) : [Nat8] { Blob.toArray(bytes); };
     to_bytes = func(array: [Nat8]) : Blob { Blob.fromArray(array); };
     max_size;
-    nonce = [];
+    nonce = [0];
+  };
+
+  public func noconv(max_size: Nat32) : BytesConverter<Blob> = {
+    from_bytes = func(bytes: Blob) : Blob { bytes; };
+    to_bytes = func(bytes: Blob) : Blob { bytes; };
+    max_size;
+    nonce = Blob.fromArray([0]);
   };
 
 };
