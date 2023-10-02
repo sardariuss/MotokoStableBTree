@@ -1,9 +1,9 @@
 import Buffer "mo:base/Buffer";
 import Result "mo:base/Result";
-import List "mo:base/List";
-import Debug "mo:base/Debug";
-import Order "mo:base/Order";
-import Int "mo:base/Int";
+import List   "mo:base/List";
+import Debug  "mo:base/Debug";
+import Order  "mo:base/Order";
+import Int    "mo:base/Int";
 
 module {
 
@@ -30,7 +30,7 @@ module {
     for(val in right.vals()){
       buffer.add(val);
     };
-    return buffer.toArray();
+    return Buffer.toArray(buffer);
   };
 
   /// Splits the buffers into two at the given index.

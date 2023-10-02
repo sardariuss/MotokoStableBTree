@@ -1,26 +1,35 @@
-import Types "types";
-import Node "node";
+import Types     "types";
+import Node      "node";
 import Constants "constants";
-import Utils "utils";
+import Utils     "utils";
 
-import Nat64 "mo:base/Nat64";
-import Debug "mo:base/Debug";
-import Stack "mo:base/Stack";
-import Array "mo:base/Array";
-import Nat8 "mo:base/Nat8";
-import Order "mo:base/Order";
+import Nat64     "mo:base/Nat64";
+import Debug     "mo:base/Debug";
+import Stack     "mo:base/Stack";
+import Array     "mo:base/Array";
+import Nat8      "mo:base/Nat8";
+import Order     "mo:base/Order";
+import Blob      "mo:base/Blob";
+import Buffer    "mo:base/Buffer";
 
 module {
 
   // For convenience: from types module
   type IBTreeMap<K, V> = Types.IBTreeMap<K, V>;
   type Cursor = Types.Cursor;
+  type BytesConverter<T> = Types.BytesConverter<T>;
   // For convenience: from node module
   type Node = Node.Node;
 
-  public func new<K, V>(map: IBTreeMap<K, V>) : Iter<K, V>{
+  public func new<K, V>(
+    map: IBTreeMap<K, V>, 
+    key_converter: BytesConverter<K>, 
+    value_converter: BytesConverter<V>
+  ) : Iter<K, V>{
     Iter({
       map;
+      key_converter;
+      value_converter;
       // Initialize the cursors with the address of the root of the map.
       cursors = [#Address(map.getRootAddr())];
       prefix = null;
@@ -28,27 +37,50 @@ module {
     });
   };
 
-  public func empty<K, V>(map: IBTreeMap<K, V>) : Iter<K, V>{
+  public func empty<K, V>(
+    map: IBTreeMap<K, V>,
+    key_converter: BytesConverter<K>,
+    value_converter: BytesConverter<V>
+  ) : Iter<K, V>{
     Iter({
       map;
+      key_converter;
+      value_converter;
       cursors = [];
       prefix = null;
       offset = null;
     });
   };
 
-  public func newWithPrefix<K, V>(map: IBTreeMap<K, V>, prefix: [Nat8], cursors: [Cursor]) : Iter<K, V>{
+  public func newWithPrefix<K, V>(
+    map: IBTreeMap<K, V>,
+    key_converter: BytesConverter<K>,
+    value_converter: BytesConverter<V>,
+    prefix: [Nat8], 
+    cursors: [Cursor]
+  ) : Iter<K, V>{
     Iter({
       map;
+      key_converter;
+      value_converter;
       cursors;
       prefix = ?prefix;
       offset = null;
     });
   };
 
-  public func newWithPrefixAndOffset<K, V>(map: IBTreeMap<K, V>, prefix: [Nat8], offset: [Nat8], cursors: [Cursor]) : Iter<K, V>{
+  public func newWithPrefixAndOffset<K, V>(
+    map: IBTreeMap<K, V>,
+    key_converter: BytesConverter<K>,
+    value_converter: BytesConverter<V>,
+    prefix: [Nat8], 
+    offset: [Nat8], 
+    cursors: [Cursor]
+  ) : Iter<K, V>{
     Iter({
       map;
+      key_converter;
+      value_converter;
       cursors;
       prefix = ?prefix;
       offset = ?offset;
@@ -57,6 +89,8 @@ module {
 
   type IterVariables<K, V> = {
     map: IBTreeMap<K, V>;
+    key_converter: BytesConverter<K>;
+    value_converter: BytesConverter<V>;
     cursors: [Cursor];
     prefix: ?[Nat8];
     offset: ?[Nat8];
@@ -68,6 +102,12 @@ module {
     
     // A reference to the map being iterated on.
     let map_: IBTreeMap<K, V> = variables.map;
+
+    // To convert the keys from/to bytes.
+    let key_converter_ = variables.key_converter;
+    
+    // To convert the values from/to bytes.
+    let value_converter_ = variables.value_converter;
 
     // A stack of cursors indicating the current position in the tree.
     var cursors_ = Stack.Stack<Cursor>();
@@ -132,7 +172,7 @@ module {
 
                   // Take the entry from the node. It's swapped with an empty element to
                   // avoid cloning.
-                  let entry = node.swapEntry(Nat64.toNat(entry_idx), ([], []));
+                  let entry = node.swapEntry(Nat64.toNat(entry_idx), (Blob.fromArray([]), Blob.fromArray([])));
 
                   // Add to the cursors the next element to be traversed.
                   cursors_.push(#Node {
@@ -150,7 +190,7 @@ module {
                   switch(prefix_){
                     case(null) {};
                     case(?prefix){
-                      if (not Utils.isPrefixOf(prefix, entry.0, Nat8.equal)){
+                      if (not Utils.isPrefixOf(prefix, Blob.toArray(entry.0), Nat8.equal)){
                         // Clear all cursors to avoid needless work in subsequent calls.
                         cursors_ := Stack.Stack<Cursor>();
                         return null;
@@ -160,7 +200,7 @@ module {
                           let prefix_with_offset = Utils.toBuffer<Nat8>(prefix);
                           prefix_with_offset.append(Utils.toBuffer<Nat8>(offset));
                           // Clear all cursors to avoid needless work in subsequent calls.
-                          if (Order.isLess(Node.compareEntryKeys(entry.0, prefix_with_offset.toArray()))){  
+                          if (Order.isLess(Node.compareEntryKeys(entry.0, Blob.fromArray(Buffer.toArray(prefix_with_offset))))){  
                             cursors_ := Stack.Stack<Cursor>();
                             return null;
                           };
@@ -168,7 +208,7 @@ module {
                       };
                     };
                   };
-                  return ?(map_.getKeyConverter().fromBytes(entry.0), map_.getValueConverter().fromBytes(entry.1));
+                  return ?(key_converter_.from_bytes(entry.0), value_converter_.from_bytes(entry.1));
                 };
               };
             };

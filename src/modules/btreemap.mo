@@ -1,29 +1,30 @@
-import Types "types";
-import Allocator "allocator";
+import Types      "types";
+import Allocator  "allocator";
 import Conversion "conversion";
-import Node "node";
-import Constants "constants";
-import Iter "iter";
-import Utils "utils";
-import Memory "memory";
+import Node       "node";
+import Constants  "constants";
+import Iter       "iter";
+import Utils      "utils";
+import Memory     "memory";
 
-import Result "mo:base/Result";
-import Option "mo:base/Option";
-import Blob "mo:base/Blob";
-import Text "mo:base/Text";
-import Nat32 "mo:base/Nat32";
-import Debug "mo:base/Debug";
-import Array "mo:base/Array";
-import Nat64 "mo:base/Nat64";
-import Order "mo:base/Order";
-import Buffer "mo:base/Buffer";
-import Nat8 "mo:base/Nat8";
+import Result     "mo:base/Result";
+import Option     "mo:base/Option";
+import Blob       "mo:base/Blob";
+import Text       "mo:base/Text";
+import Nat32      "mo:base/Nat32";
+import Debug      "mo:base/Debug";
+import Array      "mo:base/Array";
+import Nat64      "mo:base/Nat64";
+import Order      "mo:base/Order";
+import Buffer     "mo:base/Buffer";
+import Nat8       "mo:base/Nat8";
 
 module {
 
   // For convenience: from base module
   type Result<Ok, Err> = Result.Result<Ok, Err>;
   // For convenience: from types module
+  type IBTreeMap<K, V> = Types.IBTreeMap<K, V>;
   type Address = Types.Address;
   type Memory = Types.Memory;
   type BytesConverter<T> = Types.BytesConverter<T>;
@@ -57,7 +58,7 @@ module {
 
     // Check if the magic in the memory corresponds to a BTreeMap.
     let dst = Memory.read(memory, 0, 3);
-    if (dst != Blob.toArray(Text.encodeUtf8(MAGIC))) {
+    if (dst != Text.encodeUtf8(MAGIC)) {
       // No BTreeMap found. Create a new instance.
       return new(memory, key_converter, value_converter);
     };
@@ -86,14 +87,16 @@ module {
     // we can store the `BTreeHeader` at address zero, and the allocator is
     // stored directly after the `BTreeHeader`.
     let allocator_addr = Constants.ADDRESS_0 + B_TREE_HEADER_SIZE;
-    let btree = BTreeMap({
+    let btree = BTreeMap<K, V>({
       root_addr = Constants.NULL;
-      key_converter = key_converter;
-      value_converter = value_converter;
+      key_nonce = key_converter.nonce;
+      max_key_size = key_converter.max_size;
+      value_nonce = value_converter.nonce;
+      max_value_size = value_converter.max_size;
       allocator = Allocator.initAllocator(
         memory,
         allocator_addr,
-        Node.size(key_converter.maxSize(), value_converter.maxSize())
+        Node.size(key_converter.max_size, value_converter.max_size)
       );
       length : Nat64 = 0;
       memory = memory;
@@ -107,38 +110,22 @@ module {
   /// Loads the map from memory.
   public func load<K, V>(
     memory : Memory,
-    key_converter: BytesConverter<K>,
-    value_converter: BytesConverter<V>
+    key: { nonce: K },
+    value: { nonce: V },
   ) : BTreeMap<K, V> {
     // Read the header from memory.
     let header = loadBTreeHeader(Constants.NULL, memory);
     let allocator_addr = Constants.ADDRESS_0 + B_TREE_HEADER_SIZE;
-
-    let expected_key_size = header.max_key_size;
-    // TODO: add test case, and allow smaller values.
-    if (key_converter.maxSize() > expected_key_size) {
-      Debug.trap("max_key_size must be <= " # Nat32.toText(expected_key_size));
-    };
-    let expected_value_size = header.max_value_size;
-    if (value_converter.maxSize() > expected_value_size) {
-      Debug.trap("max_value_size must be <= " # Nat32.toText(expected_value_size));
-    };
 
     // Because we use the maxSize from the key_converter and value_converter to respectively set 
     // the BTreeHeader max_key_size and max_value_size on save(), we need to update the converter's
     // maxSize function to use the ones from the loaded header.
     BTreeMap({
       root_addr = header.root_addr;
-      key_converter = {
-        fromBytes = key_converter.fromBytes;
-        toBytes = key_converter.toBytes;
-        maxSize = func() : Nat32 { header.max_key_size; };
-      };
-      value_converter = {
-        fromBytes = value_converter.fromBytes;
-        toBytes = value_converter.toBytes;
-        maxSize = func() : Nat32 { header.max_value_size; };
-      };
+      key_nonce = key.nonce;
+      max_key_size = header.max_key_size;
+      value_nonce = value.nonce;
+      max_value_size = header.max_value_size;
       allocator = Allocator.loadAllocator(memory, allocator_addr);
       length = header.length;
       memory = memory;
@@ -159,24 +146,24 @@ module {
   };
 
   func saveBTreeHeader(header: BTreeHeader, addr: Address, memory: Memory) {
-    Memory.write(memory, addr                        ,                                   header.magic);
-    Memory.write(memory, addr + 3                    ,                               [header.version]);
+    Memory.write(memory, addr                        ,                   Blob.fromArray(header.magic));
+    Memory.write(memory, addr + 3                    ,               Blob.fromArray([header.version]));
     Memory.write(memory, addr + 3 + 1                ,   Conversion.nat32ToBytes(header.max_key_size));
     Memory.write(memory, addr + 3 + 1 + 4            , Conversion.nat32ToBytes(header.max_value_size));
     Memory.write(memory, addr + 3 + 1 + 4 + 4        ,      Conversion.nat64ToBytes(header.root_addr));
     Memory.write(memory, addr + 3 + 1 + 4 + 4 + 8    ,         Conversion.nat64ToBytes(header.length));
-    Memory.write(memory, addr + 3 + 1 + 4 + 4 + 8 + 8,                                 header._buffer);
+    Memory.write(memory, addr + 3 + 1 + 4 + 4 + 8 + 8,                 Blob.fromArray(header._buffer));
   };
 
   func loadBTreeHeader(addr: Address, memory: Memory) : BTreeHeader {
     let header = {
-      magic =                                  Memory.read(memory, addr                        , 3);
-      version =                                Memory.read(memory, addr + 3                    , 1)[0];
-      max_key_size =   Conversion.bytesToNat32(Memory.read(memory, addr + 3 + 1                , 4));
-      max_value_size = Conversion.bytesToNat32(Memory.read(memory, addr + 3 + 1 + 4            , 4));
-      root_addr =      Conversion.bytesToNat64(Memory.read(memory, addr + 3 + 1 + 4 + 4        , 8));
-      length =         Conversion.bytesToNat64(Memory.read(memory, addr + 3 + 1 + 4 + 4 + 8    , 8));
-      _buffer =                                Memory.read(memory, addr + 3 + 1 + 4 + 4 + 8 + 8, 24);
+      magic =                     Blob.toArray(Memory.read(memory, addr                        , 3 ));
+      version =                   Blob.toArray(Memory.read(memory, addr + 3                    , 1 ))[0];
+      max_key_size =   Conversion.bytesToNat32(Memory.read(memory, addr + 3 + 1                , 4 ));
+      max_value_size = Conversion.bytesToNat32(Memory.read(memory, addr + 3 + 1 + 4            , 4 ));
+      root_addr =      Conversion.bytesToNat64(Memory.read(memory, addr + 3 + 1 + 4 + 4        , 8 ));
+      length =         Conversion.bytesToNat64(Memory.read(memory, addr + 3 + 1 + 4 + 4 + 8    , 8 ));
+      _buffer =                   Blob.toArray(Memory.read(memory, addr + 3 + 1 + 4 + 4 + 8 + 8, 24));
     };
     if (header.magic != Blob.toArray(Text.encodeUtf8(MAGIC))) { Debug.trap("Bad magic."); };
     if (header.version != LAYOUT_VERSION)                     { Debug.trap("Unsupported version."); };
@@ -186,22 +173,24 @@ module {
 
   type BTreeMapMembers<K, V> = {
     root_addr : Address;
-    key_converter: BytesConverter<K>;
-    value_converter: BytesConverter<V>;
+    key_nonce: K;
+    max_key_size: Nat32;
+    value_nonce: V;
+    max_value_size: Nat32;
     allocator : Allocator;
     length : Nat64;
     memory : Memory;
   };
 
-  public class BTreeMap<K, V>(members: BTreeMapMembers<K, V>) = self {
+  public class BTreeMap<K, V>(members: BTreeMapMembers<K, V>) : IBTreeMap<K, V> = self {
     
     /// Members
     // The address of the root node. If a root node doesn't exist, the address is set to NULL.
     var root_addr_ : Address = members.root_addr;
     /// To convert the key into/from bytes.
-    let key_converter_ : BytesConverter<K> = members.key_converter;
+    let max_key_size_ = members.max_key_size;
     /// To convert the value into/from bytes.
-    let value_converter_ : BytesConverter<V> = members.value_converter;
+    let max_value_size_ = members.max_value_size;
     // An allocator used for managing memory and allocating nodes.
     let allocator_ : Allocator = members.allocator;
     // The number of elements in the map.
@@ -211,8 +200,8 @@ module {
 
     /// Getters
     public func getRootAddr() : Address { root_addr_; };
-    public func getKeyConverter() : BytesConverter<K> { key_converter_; };
-    public func getValueConverter() : BytesConverter<V> { value_converter_; };
+    public func getMaxKeySize() : Nat32 { max_key_size_; };
+    public func getMaxValueSize() : Nat32 { max_value_size_; };
     public func getAllocator() : Allocator { allocator_; };
     public func getLength() : Nat64 { length_; };
     public func getMemory() : Memory { memory_; };
@@ -223,12 +212,17 @@ module {
     ///
     /// The size of the key/value must be <= the max key/value sizes configured
     /// for the map. Otherwise, an `InsertError` is returned.
-    public func insert(k: K, v: V) : Result<?V, InsertError> {
-      let key = key_converter_.toBytes(k);
-      let value = value_converter_.toBytes(v);
+    public func insert(
+      k: K,
+      key_converter: BytesConverter<K>,
+      v: V,
+      value_converter: BytesConverter<V>
+    ) : Result<?V, InsertError> {
+      let key = key_converter.to_bytes(k);
+      let value = value_converter.to_bytes(v);
 
       // Verify the size of the key.
-      let max_key_size = Nat32.toNat(key_converter_.maxSize());
+      let max_key_size = Nat32.toNat(key_converter.max_size);
       if (key.size() > max_key_size) {
         return #err(#KeyTooLarge {
           given = key.size();
@@ -237,7 +231,7 @@ module {
       };
 
       // Verify the size of the value.
-      let max_value_size = Nat32.toNat(value_converter_.maxSize());
+      let max_value_size = Nat32.toNat(value_converter.max_size);
       if (value.size() > max_value_size) {
         return #err(#ValueTooLarge {
           given = value.size();
@@ -262,7 +256,7 @@ module {
               // The key exists. Overwrite it and return the previous value.
               let (_, previous_value) = root.swapEntry(idx, (key, value));
               root.save(memory_);
-              return #ok(?(value_converter_.fromBytes(previous_value)));
+              return #ok(?(value_converter.from_bytes(previous_value)));
             };
             case(#err(_)){
               // If the root is full, we need to introduce a new node as the root.
@@ -292,14 +286,14 @@ module {
           };
         };
       };
-      #ok(Option.map<[Nat8], V>(
+      #ok(Option.map<Blob, V>(
         insertNonFull(root, key, value),
-        func(bytes: [Nat8]) : V { value_converter_.fromBytes(bytes); })
+        func(bytes: Blob) : V { value_converter.from_bytes(bytes); })
       );
     };
 
     // Inserts an entry into a node that is *not full*.
-    func insertNonFull(node: Node, key: [Nat8], value: [Nat8]) : ?[Nat8] {
+    func insertNonFull(node: Node, key: Blob, value: Blob) : ?Blob {
       // We're guaranteed by the caller that the provided node is not full.
       assert(not node.isFull());
 
@@ -425,17 +419,17 @@ module {
     };
 
     /// Returns the value associated with the given key if it exists.
-    public func get(key: K) : ?V {
+    public func get(key: K, key_converter: BytesConverter<K>, value_converter: BytesConverter<V>) : ?V {
       if (root_addr_ == Constants.NULL) {
         return null;
       };
-      Option.map<[Nat8], V>(
-        getHelper(root_addr_, key_converter_.toBytes(key)),
-        func(bytes: [Nat8]) : V { value_converter_.fromBytes(bytes); }
+      Option.map<Blob, V>(
+        getHelper(root_addr_, key_converter.to_bytes(key)),
+        func(bytes: Blob) : V { value_converter.from_bytes(bytes); }
       );
     };
 
-    func getHelper(node_addr: Address, key: [Nat8]) : ?[Nat8] {
+    func getHelper(node_addr: Address, key: Blob) : ?Blob {
       let node = loadNode(node_addr);
       switch(node.getKeyIdx(key)){
         case(#ok(idx)) { ?node.getEntry(idx).1; };
@@ -452,8 +446,14 @@ module {
     };
 
     /// Returns `true` if the key exists in the map, `false` otherwise.
-    public func containsKey(key: K) : Bool {
-      Option.isSome(get(key));
+    public func containsKey(key: K, key_converter: BytesConverter<K>) : Bool {
+      if (root_addr_ == Constants.NULL) {
+        return false;
+      };
+      switch(getHelper(root_addr_, key_converter.to_bytes(key))){
+        case(null) { false; };
+        case(?_)   { true;  };
+      };
     };
 
     /// Returns `true` if the map contains no elements.
@@ -462,18 +462,18 @@ module {
     };
 
     /// Removes a key from the map, returning the previous value at the key if it exists.
-    public func remove(key: K) : ?V {
+    public func remove(key: K, key_converter: BytesConverter<K>, value_converter: BytesConverter<V>) : ?V {
       if (root_addr_ == Constants.NULL) {
         return null;
       };
-      Option.map<[Nat8], V>(
-        removeHelper(root_addr_, key_converter_.toBytes(key)),
-        func(bytes: [Nat8]) : V { value_converter_.fromBytes(bytes); }
+      Option.map<Blob, V>(
+        removeHelper(root_addr_, key_converter.to_bytes(key)),
+        func(bytes: Blob) : V { value_converter.from_bytes(bytes); }
       );
     };
 
     // A helper method for recursively removing a key from the B-tree.
-    func removeHelper(node_addr: Address, key: [Nat8]) : ?[Nat8] {
+    func removeHelper(node_addr: Address, key: Blob) : ?Blob {
       var node = loadNode(node_addr);
 
       if(node.getAddress() != root_addr_){
@@ -621,7 +621,7 @@ module {
               if (node.getEntries().size() == 0) {
                 // Can only happen if this node is root.
                 assert(node.getAddress() == root_addr_);
-                assert(node.getChildren().toArray() == [new_child.getAddress()]);
+                assert(Buffer.toArray(node.getChildren()) == [new_child.getAddress()]);
 
                 root_addr_ := new_child.getAddress();
 
@@ -844,18 +844,18 @@ module {
     };
 
     // Returns an iterator over the entries of the map, sorted by key.
-    public func iter() : Iter<K, V> {
-      Iter.new(self);
+    public func iter(key_converter: BytesConverter<K>, value_converter: BytesConverter<V>) : Iter<K, V> {
+      Iter.new<K, V>(self, key_converter, value_converter);
     };
 
     /// Returns an iterator over the entries in the map where keys begin with the given `prefix`.
     /// If the optional `offset` is set, the iterator returned will start from the entry that
     /// contains this `offset` (while still iterating over all remaining entries that begin
     /// with the given `prefix`).
-    public func range(prefix: [Nat8], offset: ?[Nat8]) : Iter<K, V> {
+    public func range(key_converter: BytesConverter<K>, value_converter: BytesConverter<V>, prefix: [Nat8], offset: ?[Nat8]) : Iter<K, V> {
       if (root_addr_ == Constants.NULL) {
         // Map is empty.
-        return Iter.empty(self);
+        return Iter.empty(self, key_converter, value_converter);
       };
 
       var node = loadNode(root_addr_);
@@ -870,7 +870,7 @@ module {
             pivot.append(Utils.toBuffer(offset));
           };
         };
-        let idx = switch(node.getKeyIdx(pivot.toArray())){
+        let idx = switch(node.getKeyIdx(Blob.fromArray(Buffer.toArray(pivot)))){
           case(#err(idx)) { idx; };
           case(#ok(idx)) { idx; };
         };
@@ -891,7 +891,7 @@ module {
         };
 
         // If the prefix is found in the node, then add a cursor starting from its index.
-        if (idx < node.getEntries().size() and Utils.isPrefixOf(prefix, node.getEntry(idx).0, Nat8.equal)){
+        if (idx < node.getEntries().size() and Utils.isPrefixOf(prefix, Blob.toArray(node.getEntry(idx).0), Nat8.equal)){
           cursors.add(#Node {
             node;
             next = #Entry(Nat64.fromNat(idx));
@@ -904,11 +904,11 @@ module {
             switch(offset) {
               case(?offset) {
                 return Iter.newWithPrefixAndOffset(
-                  self, prefix, offset, cursors.toArray()
+                  self, key_converter, value_converter, prefix, offset, Buffer.toArray(cursors)
                 );
               };
               case(null) {
-                return Iter.newWithPrefix(self, prefix, cursors.toArray());
+                return Iter.newWithPrefix(self, key_converter, value_converter, prefix, Buffer.toArray(cursors));
               };
             };
           };
@@ -970,13 +970,13 @@ module {
         entries = [];
         children = [];
         node_type;
-        max_key_size = key_converter_.maxSize();
-        max_value_size = value_converter_.maxSize();
+        max_key_size = max_key_size_;
+        max_value_size = max_value_size_;
       });
     };
 
     public func loadNode(address: Address) : Node {
-      Node.load(address, memory_, key_converter_.maxSize(), value_converter_.maxSize());
+      Node.load(address, memory_, max_key_size_, max_value_size_);
     };
 
     // Saves the map to memory.
@@ -985,8 +985,8 @@ module {
         magic = Blob.toArray(Text.encodeUtf8(MAGIC));
         version = LAYOUT_VERSION;
         root_addr = root_addr_;
-        max_key_size = key_converter_.maxSize();
-        max_value_size = value_converter_.maxSize();
+        max_key_size = max_key_size_;
+        max_value_size = max_value_size_;
         length = length_;
         _buffer = Array.freeze<Nat8>(Array.init<Nat8>(24, 0));
       };

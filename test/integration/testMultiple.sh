@@ -41,27 +41,26 @@ function reinstall(canister_id, wasm) {
 // Create the canister
 let multiple_btrees = install(file(".dfx/local/canisters/multipleBTrees/multipleBTrees.wasm"));
 
-// Use a first btreemap of identifier 0
-call multiple_btrees.getLength(0);
-assert _ == (0 : nat64);
-call multiple_btrees.insert(0, 12345, "hello");
-assert _ == variant { ok = null : opt record{} };
-call multiple_btrees.getLength(0);
-assert _ == (1 : nat64);
+// Create a first BTree (id = 0)
+call multiple_btrees.size(0);
+assert _ == (0 : nat);
+call multiple_btrees.put(0, 12345, "hello");
+assert _ == (null : opt text);
+call multiple_btrees.size(0);
+assert _ == (1 : nat);
 call multiple_btrees.get(0, 12345);
 assert _ == opt("hello" : text);
 
-// Use a second btreemap of identifier 1
-call multiple_btrees.getLength(1);
-assert _ == (0 : nat64);
+// Create a second BTree (id = 1)
+call multiple_btrees.size(1);
+assert _ == (0 : nat);
 call multiple_btrees.get(1, 12345);
-assert _ == (null : opt record{});
-call multiple_btrees.insert(1, 67890, "hi");
-call multiple_btrees.insert(1, 45678, "ola");
-call multiple_btrees.insert(1, 34567, "salut");
-assert _ == variant { ok = null : opt record{} };
-call multiple_btrees.getLength(1);
-assert _ == (3 : nat64);
+assert _ == (null : opt text);
+call multiple_btrees.put(1, 67890, "hi");
+call multiple_btrees.put(1, 45678, "ola");
+call multiple_btrees.put(1, 34567, "salut");
+call multiple_btrees.size(1);
+assert _ == (3 : nat);
 call multiple_btrees.get(1, 67890);
 assert _ == opt("hi" : text);
 call multiple_btrees.get(1, 45678);
@@ -71,12 +70,12 @@ assert _ == opt("salut" : text);
 
 // Both BTrees shall be preserved after an upgrade
 upgrade(multiple_btrees, file(".dfx/local/canisters/multipleBTrees/multipleBTrees.wasm"));
-call multiple_btrees.getLength(0);
-assert _ == (1 : nat64);
+call multiple_btrees.size(0);
+assert _ == (1 : nat);
 call multiple_btrees.get(0, 12345);
 assert _ == opt("hello" : text);
-call multiple_btrees.getLength(1);
-assert _ == (3 : nat64);
+call multiple_btrees.size(1);
+assert _ == (3 : nat);
 call multiple_btrees.get(1, 67890);
 assert _ == opt("hi" : text);
 call multiple_btrees.get(1, 45678);
@@ -86,15 +85,15 @@ assert _ == opt("salut" : text);
 
 // Both BTrees shall be emptied after a reinstall
 reinstall(multiple_btrees, file(".dfx/local/canisters/multipleBTrees/multipleBTrees.wasm"));
-call multiple_btrees.getLength(0);
-assert _ == (0 : nat64);
+call multiple_btrees.size(0);
+assert _ == (0 : nat);
 call multiple_btrees.get(0, 12345);
-assert _ == (null : opt record{});
-call multiple_btrees.getLength(1);
-assert _ == (0 : nat64);
+assert _ == (null : opt text);
+call multiple_btrees.size(1);
+assert _ == (0 : nat);
 call multiple_btrees.get(1, 67890);
-assert _ == (null : opt record{});
+assert _ == (null : opt text);
 call multiple_btrees.get(1, 45678);
-assert _ == (null : opt record{});
+assert _ == (null : opt text);
 call multiple_btrees.get(1, 34567);
-assert _ == (null : opt record{});
+assert _ == (null : opt text);

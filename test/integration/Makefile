@@ -1,8 +1,9 @@
 default:
 	dfx stop
 	dfx start --clean --background
-	dfx deploy singleBTree
+	dfx deploy
+	dfx generate
 	npm install
+	ic-repl testSingle.sh
 	node testSingle.js
-	dfx deploy multipleBTrees
 	ic-repl testMultiple.sh

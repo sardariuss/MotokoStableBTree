@@ -1,6 +1,5 @@
 {
   "version": 1,
-  "dfx": "0.11.2",
   "canisters": {
     "singleBTree": {
       "type": "motoko",
@@ -12,14 +11,10 @@
     }
   },
   "defaults": {
-    "replica": {
-      "subnet_type": "system"
+    "build": {
+      "args": "",
+      "packtool": "mops sources"
     }
   },
-  "networks": {
-    "local": {
-      "bind": "127.0.0.1:4943",
-      "type": "ephemeral"
-    }
-  }
+  "output_env_file": ".env"
 }

@@ -1,17 +1,12 @@
-import { HttpAgent, Actor } from "@dfinity/agent";
-import { idlFactory } from "./.dfx/local/canisters/singleBTree/singleBTree.did.js";
-import fetch from "node-fetch";
-import { test } from "tape";
-// From https://stackoverflow.com/a/74018376/6021706
-import { createRequire } from "module";          
-import { assert } from "console";
-const require = createRequire(import.meta.url);
-const canister_ids = require("./.dfx/local/canister_ids.json");
+import { idlFactory, canisterId } from "./src/declarations/singleBTree/index.js";
 
-global.fetch = fetch;
+import { HttpAgent, Actor }       from "@dfinity/agent";
+import fetch                      from "isomorphic-fetch";
+import { test }                   from "tape";
 
 const agent = new HttpAgent({
-  host: "http://127.0.0.1:4943/"
+  host: "http://localhost:4943/",
+  fetch: fetch
 });
 
 agent.fetchRootKey().catch((err) => {
@@ -19,9 +14,9 @@ agent.fetchRootKey().catch((err) => {
   console.error(err);
 });
 
-const single_b_tree = Actor.createActor(idlFactory, {
+const singleBTree = Actor.createActor(idlFactory, {
   agent: agent,
-  canisterId: canister_ids["singleBTree"]["local"]
+  canisterId: canisterId
 });
 
 const NUM_INSERTIONS = 5000;
@@ -32,7 +27,7 @@ const NUM_CALLS = NUM_INSERTIONS / MAX_BTREE_ITERATIONS;
 
 const btree_insert_test = async (t, keys) => {
   // Verify the btree is empty
-  if (await single_b_tree.getLength() != 0n){
+  if (await singleBTree.size() != 0n){
     throw new FatalError("The btree is not empty");
   }
 
@@ -46,14 +41,14 @@ const btree_insert_test = async (t, keys) => {
     const lower_bound = i * MAX_BTREE_ITERATIONS;
     const upper_bound = (i + 1) * MAX_BTREE_ITERATIONS;
     const sub_entries = entries.filter((value, index) => index >= lower_bound && index < upper_bound);
-    insert_result &= ((await single_b_tree.insertMany(sub_entries)).err === undefined);
+    insert_result &= ((await singleBTree.insertMany(sub_entries)).err === undefined);
   }
   
   // Verify the insertions worked
   t.ok(insert_result);
   
   // Verify the length of the btree
-  t.equal(await single_b_tree.getLength(), BigInt(unique_keys.length));
+  t.equal(await singleBTree.size(), BigInt(unique_keys.length));
 
   var get_result = true;
 
@@ -63,14 +58,14 @@ const btree_insert_test = async (t, keys) => {
     const upper_bound = (i + 1) * MAX_BTREE_ITERATIONS;
     const sub_keys = unique_keys.filter((value, index) => index >= lower_bound && index < upper_bound);
     // Use join to compare array's content
-    get_result &= ((await single_b_tree.getMany(sub_keys)).join("") == sub_keys.map(key => key.toString()).join(""));
+    get_result &= ((await singleBTree.getMany(sub_keys)).join("") == sub_keys.map(key => key.toString()).join(""));
   }
 
   // Verify retrieving each value worked
   t.ok(get_result);
 
   // Empty the btree
-  await single_b_tree.empty();
+  await singleBTree.clear();
 };
 
 test('random_insertions', async function (t) {

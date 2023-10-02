@@ -1,24 +1,25 @@
-import Types "../../src/types";
+import Types    "../../src/modules/types";
 
-import Suite "mo:matchers/Suite";
+import Suite    "mo:matchers/Suite";
 import Matchers "mo:matchers/Matchers";
 import Testable "mo:matchers/Testable";
 
-import Nat "mo:base/Nat";
-import Nat8 "mo:base/Nat8";
-import Nat16 "mo:base/Nat16";
-import Nat32 "mo:base/Nat32";
-import Nat64 "mo:base/Nat64";
-import Int "mo:base/Int";
-import Int8 "mo:base/Int8";
-import Int16 "mo:base/Int16";
-import Int32 "mo:base/Int32";
-import Int64 "mo:base/Int64";
-import Buffer "mo:base/Buffer";
-import Text "mo:base/Text";
-import Array "mo:base/Array";
-import Result "mo:base/Result";
-import Bool "mo:base/Bool";
+import Nat      "mo:base/Nat";
+import Nat8     "mo:base/Nat8";
+import Nat16    "mo:base/Nat16";
+import Nat32    "mo:base/Nat32";
+import Nat64    "mo:base/Nat64";
+import Int      "mo:base/Int";
+import Int8     "mo:base/Int8";
+import Int16    "mo:base/Int16";
+import Int32    "mo:base/Int32";
+import Int64    "mo:base/Int64";
+import Buffer   "mo:base/Buffer";
+import Text     "mo:base/Text";
+import Array    "mo:base/Array";
+import Result   "mo:base/Result";
+import Bool     "mo:base/Bool";
+import Blob     "mo:base/Blob";
 
 module {
 
@@ -211,11 +212,11 @@ module {
   };
 
   func entryToText(entry: Entry) : Text {
-    "key: " # bytesToText(entry.0) # ", value: " # bytesToText(entry.1);
+    "key: " # bytesToText(Blob.toArray(entry.0)) # ", value: " # bytesToText(Blob.toArray(entry.1));
   };
 
   func entryEqual(entry1: Entry, entry2: Entry) : Bool {
-    bytesEqual(entry1.0, entry2.0) and bytesEqual(entry1.1, entry2.1);
+    bytesEqual(Blob.toArray(entry1.0), Blob.toArray(entry2.0)) and bytesEqual(Blob.toArray(entry1.1), Blob.toArray(entry2.1));
   };
 
   func testEntries(entries: [Entry]) : Testable.TestableItem<[Entry]> {
@@ -254,84 +255,74 @@ module {
     testOptItem<[Nat16]>(array, arrayNat16toText, arrayNat16Equal);
   };
 
-  public class TestBuffer() {
-
-    let tests_ = Buffer.Buffer<Suite.Suite>(0);
-
-    public func run(message: Text) {
-      Suite.run(suite(message, tests_.toArray()));
-    };
-
-    public func equals<T>(message: Text, actual: T, expected: Testable.TestableItem<T>){
-      tests_.add(test(message, actual, Matchers.equals(expected)));
-    };
+  public module Test {
 
     public func equalsNat(actual: Nat, expected: Nat){
-      equals<Nat>("equalsNat", actual, testNat(expected));
+      Matchers.assertThat(actual, Matchers.equals(testNat(expected)));
     };
 
     public func equalsNat8(actual: Nat8, expected: Nat8){
-      equals<Nat8>("equalsNat8", actual, testNat8(expected));
+      Matchers.assertThat(actual, Matchers.equals(testNat8(expected)));
     };
 
     public func equalsNat16(actual: Nat16, expected: Nat16){
-      equals<Nat16>("equalsNat16", actual, testNat16(expected));
+      Matchers.assertThat(actual, Matchers.equals(testNat16(expected)));
     };
 
     public func equalsNat32(actual: Nat32, expected: Nat32){
-      equals<Nat32>("equalsNat32", actual, testNat32(expected));
+      Matchers.assertThat(actual, Matchers.equals(testNat32(expected)));
     };
 
     public func equalsNat64(actual: Nat64, expected: Nat64){
-      equals<Nat64>("equalsNat64", actual, testNat64(expected));
+      Matchers.assertThat(actual, Matchers.equals(testNat64(expected)));
     };
 
     public func equalsInt(actual: Int, expected: Int){
-      equals<Int>("equalsInt", actual, testInt(expected));
+      Matchers.assertThat(actual, Matchers.equals(testInt(expected)));
     };
 
     public func equalsInt8(actual: Int8, expected: Int8){
-      equals<Int8>("equalsInt8", actual, testInt8(expected));
+      Matchers.assertThat(actual, Matchers.equals(testInt8(expected)));
     };
 
     public func equalsInt16(actual: Int16, expected: Int16){
-      equals<Int16>("equalsInt16", actual, testInt16(expected));
+      Matchers.assertThat(actual, Matchers.equals(testInt16(expected)));
     };
 
     public func equalsInt32(actual: Int32, expected: Int32){
-      equals<Int32>("equalsInt32", actual, testInt32(expected));
+      Matchers.assertThat(actual, Matchers.equals(testInt32(expected)));
     };
 
     public func equalsInt64(actual: Int64, expected: Int64){
-      equals<Int64>("equalsInt64", actual, testInt64(expected));
+      Matchers.assertThat(actual, Matchers.equals(testInt64(expected)));
     };
 
     public func equalsBytes(actual: [Nat8], expected: [Nat8]){
-      equals<[Nat8]>("equalsBytes", actual, testBytes(expected));
+      Matchers.assertThat(actual, Matchers.equals(testBytes(expected)));
     };
 
     public func equalsOptBytes(actual: ?[Nat8], expected: ?[Nat8]){
-      equals<?[Nat8]>("equalsOptBytes", actual, testOptBytes(expected));
+      Matchers.assertThat(actual, Matchers.equals(testOptBytes(expected)));
     };
 
     public func equalsInsertResult(actual: InsertResult, expected: InsertResult){
-      equals<InsertResult>("equalsInsertResult", actual, testInsertResult(expected));
+      Matchers.assertThat(actual, Matchers.equals(testInsertResult(expected)));
     };
 
     public func equalsNodeType(actual: NodeType, expected: NodeType){
-      equals<NodeType>("equalsNodeType", actual, testNodeType(expected));
+      Matchers.assertThat(actual, Matchers.equals(testNodeType(expected)));
     };
 
     public func equalsBool(actual: Bool, expected: Bool){
-      equals<Bool>("equalsBool", actual, testBool(expected));
+      Matchers.assertThat(actual, Matchers.equals(testBool(expected)));
     };
 
     public func equalsEntries(actual: [Entry], expected: [Entry]){
-      equals<[Entry]>("equalsEntries", actual, testEntries(expected));
+      Matchers.assertThat(actual, Matchers.equals(testEntries(expected)));
     };
 
     public func equalsOptArrayNat16(actual: ?[Nat16], expected: ?[Nat16]){
-      equals<?[Nat16]>("equalsOptArrayNat16", actual, testOptArrayNat16(expected));
+      Matchers.assertThat(actual, Matchers.equals(testOptArrayNat16(expected)));
     };
 
   };
