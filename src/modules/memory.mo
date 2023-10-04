@@ -14,6 +14,8 @@ import Text      "mo:base/Text";
 import Nat8      "mo:base/Nat8";
 import Result    "mo:base/Result";
 
+import Conversion "conversion";
+
 module {
 
   // For convenience: from types module
@@ -81,6 +83,33 @@ module {
     public func read(address: Nat64, size: Nat) : Blob {
       Region.loadBlob(r, address, size);
     };
+/*
+    public func storeNat8(address: Nat64, v: Nat8) {
+      Region.storeNat8(r, address, v);
+    };
+    public func loadNat8(address: Nat64) : Nat8 {
+      Region.loadNat8(r, address, size);
+    };
+*/
+    public func storeNat16(address: Nat64, v: Nat16) {
+      Region.storeNat16(r, address, v);
+    };
+    public func loadNat16(address: Nat64) : Nat16 {
+      Region.loadNat16(r, address);
+    };
+    public func storeNat32(address: Nat64, v: Nat32) {
+      Region.storeNat32(r, address, v);
+    };
+    public func loadNat32(address: Nat64) : Nat32 {
+      Region.loadNat32(r, address);
+    };
+    public func storeNat64(address: Nat64, v: Nat64) {
+      Region.storeNat64(r, address, v);
+    };
+    public func loadNat64(address: Nat64) : Nat64 {
+      Region.loadNat64(r, address);
+    };
+
   };
 
   public class VecMemory() = this {
@@ -147,6 +176,40 @@ module {
       text_buffer.add("]");
       Text.join("", text_buffer.vals());
     };
+
+/*
+    public func storeNat8(address: Nat64, v: Nat8) {
+      write(address, Conversion.nat8ToBytes(v));
+    };
+
+    public func loadNat8(address: Nat64) : Nat8 {
+      Conversion.bytesToNat8(read(address, 1));
+    };
+*/
+    public func storeNat16(address: Nat64, v: Nat16) {
+      write(address, Conversion.nat16ToBytes(v));
+    };
+
+    public func loadNat16(address: Nat64) : Nat16 {
+      Conversion.bytesToNat16(read(address, 2));
+    };
+
+    public func storeNat32(address: Nat64, v: Nat32) {
+      write(address, Conversion.nat32ToBytes(v));
+    };
+
+    public func loadNat32(address: Nat64) : Nat32 {
+      Conversion.bytesToNat32(read(address, 4));
+    };
+
+    public func storeNat64(address: Nat64, v: Nat64) {
+      write(address, Conversion.nat64ToBytes(v));
+    };
+
+    public func loadNat64(address: Nat64) : Nat64 {
+      Conversion.bytesToNat64(read(address, 8));
+    };
+
 
   };
 
