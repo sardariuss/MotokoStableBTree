@@ -57,7 +57,7 @@ module {
     var offset = SIZE_NODE_HEADER;
     for (_ in Iter.range(0, Nat16.toNat(header.num_entries - 1))){
       // Read the key's size.
-      let key_size = Conversion.bytesToNat32(Memory.read(memory, address + offset, U32_SIZE));
+      let key_size = Memory.readNat32(memory, address + offset);
       offset += Nat64.fromNat(U32_SIZE);
 
       // Read the key.
@@ -65,7 +65,7 @@ module {
       offset += Nat64.fromNat(Nat32.toNat(max_key_size));
 
       // Read the value's size.
-      let value_size = Conversion.bytesToNat32(Memory.read(memory, address + offset, U32_SIZE));
+      let value_size = Memory.readNat32(memory, address + offset);
       offset += Nat64.fromNat(U32_SIZE);
 
       // Read the value.
@@ -189,13 +189,13 @@ module {
       };
 
       saveNodeHeader(header, address_, memory);
-      
+
       var offset = SIZE_NODE_HEADER;
 
       // Write the entries.
       for ((key, value) in entries_.vals()) {
         // Write the size of the key.
-        Memory.write(memory, address_ + offset, Conversion.nat32ToBytes(Nat32.fromNat(key.size())));
+        Memory.writeNat32(memory, address_ + offset, Nat32.fromNat(key.size()));
         offset += Nat64.fromNat(U32_SIZE);
 
         // Write the key.
@@ -203,7 +203,7 @@ module {
         offset += Nat64.fromNat(Nat32.toNat(max_key_size_));
 
         // Write the size of the value.
-        Memory.write(memory, address_ + offset, Conversion.nat32ToBytes(Nat32.fromNat(value.size())));
+        Memory.writeNat32(memory, address_ + offset,Nat32.fromNat(value.size()));
         offset += Nat64.fromNat(U32_SIZE);
 
         // Write the value.
@@ -213,7 +213,7 @@ module {
 
       // Write the children
       for (child in children_.vals()){
-        Memory.write(memory, address_ + offset, Conversion.nat64ToBytes(child));
+        Memory.writeNat64(memory, address_ + offset, child);
         offset += Nat64.fromNat(ADDRESS_SIZE); // Address size
       };
     };

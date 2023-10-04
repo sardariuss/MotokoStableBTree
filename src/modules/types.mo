@@ -29,8 +29,9 @@ module {
     loadNat16: Nat64 -> Nat16;
     storeNat16: (Nat64, Nat16) -> ();
     loadNat32: Nat64 -> Nat32;
-    storeNat64: (Nat64, Nat64) -> ();
+    storeNat32: (Nat64, Nat32) -> ();
     loadNat64: Nat64 -> Nat64;
+    storeNat64: (Nat64, Nat64) -> ();
   };
 
   /// An indicator of the current position in the map.
