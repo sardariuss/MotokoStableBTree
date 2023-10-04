@@ -64,7 +64,7 @@ module {
     memory.read(address, size);
   };
 
-  public class RegionMemory(r: Region.Region) : Memory {
+  public class RegionMemory(r : Region.Region) : Memory {
     public func size() : Nat64 { 
       Region.size(r); 
     };
