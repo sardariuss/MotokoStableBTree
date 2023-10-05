@@ -12,7 +12,6 @@ import Debug     "mo:base/Debug";
 import Iter      "mo:base/Iter";
 import Text      "mo:base/Text";
 import Nat8      "mo:base/Nat8";
-import Result    "mo:base/Result";
 
 import Conversion "conversion";
 
@@ -20,8 +19,6 @@ module {
 
   // For convenience: from types module
   type Memory = Types.Memory;
-  // For convenience: from base module
-  type Result<Ok, Err> = Result.Result<Ok, Err>;
 
   type GrowFailed = {
     current_size: Nat64;
