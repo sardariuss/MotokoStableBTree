@@ -14,10 +14,14 @@ import Text      "mo:base/Text";
 import Int       "mo:base/Int";
 import Array     "mo:base/Array";
 
+// TODO: Use (new) direct conversions, not via Nat, make little-endian
+// TODO: Use blob indexing once available (avoiding intermediate arrays).
+// TODO: Use direct blob conversion, once available.
+
 module {
 
   // Comes from Candy library conversion.mo: https://raw.githubusercontent.com/skilesare/candy_library/main/src/conversion.mo
-  
+
   //////////////////////////////////////////////////////////////////////
   // The following functions converst standard types to Byte arrays
   // From there you can easily get to blobs if necessary with the Blob package
@@ -75,14 +79,22 @@ module {
   };
 
   public func bytesToNat16(bytes: Blob) : Nat16{
-
     let array = Blob.toArray(bytes);
     (Nat16.fromNat(Nat8.toNat(array[0])) << 8) +
     (Nat16.fromNat(Nat8.toNat(array[1])));
   };
 
-  public func byteArrayToNat32(array: [Nat8]) : Nat32{
+  public func bytesToNat8(bytes: Blob) : Nat8{
+    let array = Blob.toArray(bytes);
+    array[0]
+  };
 
+  /// Returns Blob of size 4 of the Nat16
+  public func nat8ToBytes(x : Nat8) : Blob {
+    Blob.fromArray([x]);
+  };
+
+  public func byteArrayToNat32(array: [Nat8]) : Nat32{
     (Nat32.fromNat(Nat8.toNat(array[0])) << 24) +
     (Nat32.fromNat(Nat8.toNat(array[1])) << 16) +
     (Nat32.fromNat(Nat8.toNat(array[2])) << 8) +
@@ -99,7 +111,6 @@ module {
   };
 
   public func bytesToNat64(bytes: Blob) : Nat64{
-    
     let array = Blob.toArray(bytes);
     (Nat64.fromNat(Nat8.toNat(array[0])) << 56) +
     (Nat64.fromNat(Nat8.toNat(array[1])) << 48) +

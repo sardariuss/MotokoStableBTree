@@ -52,27 +52,25 @@ module {
     memory.write(address, bytes);
   };
 
-/*
-  public func writeNat8(memory: Memory, address: Nat64, bytes: Nat8) {
+
+  public func writeNat8(memory: Memory, address: Nat64, v: Nat8) {
     prepWrite(memory, address, 1);
-    memory.storeNat8(address, bytes);
+    memory.storeNat8(address, v);
   };
-*/
 
-  public func writeNat16(memory: Memory, address: Nat64, bytes: Nat16) {
+  public func writeNat16(memory: Memory, address: Nat64, v: Nat16) {
     prepWrite(memory, address, 2);
-    memory.storeNat16(address, bytes);
+    memory.storeNat16(address, v);
   };
 
-  public func writeNat32(memory: Memory, address: Nat64, bytes: Nat32) {
+  public func writeNat32(memory: Memory, address: Nat64, v: Nat32) {
     prepWrite(memory, address, 4);
-    memory.storeNat32(address, bytes);
+    memory.storeNat32(address, v);
   };
 
-
-  public func writeNat64(memory: Memory, address: Nat64, bytes: Nat64) {
+  public func writeNat64(memory: Memory, address: Nat64, v: Nat64) {
     prepWrite(memory, address, 8);
-    memory.storeNat64(address, bytes);
+    memory.storeNat64(address, v);
   };
 
 
@@ -81,7 +79,12 @@ module {
     memory.read(address, size);
   };
 
-  /// Reads the Nat32 bytes at the specified address, traps if exceeds memory size.
+  /// Reads the Nat8 bytes at the specified address, traps if exceeds memory size.
+  public func readNat8(memory: Memory, address: Nat64) : Nat8 {
+    memory.loadNat8(address);
+  };
+
+  /// Reads the Nat16 bytes at the specified address, traps if exceeds memory size.
   public func readNat16(memory: Memory, address: Nat64) : Nat16 {
     memory.loadNat16(address);
   };
@@ -114,26 +117,28 @@ module {
     public func read(address: Nat64, size: Nat) : Blob {
       Region.loadBlob(r, address, size);
     };
-/*
+
     public func storeNat8(address: Nat64, v: Nat8) {
       Region.storeNat8(r, address, v);
     };
     public func loadNat8(address: Nat64) : Nat8 {
-      Region.loadNat8(r, address, size);
+      Region.loadNat8(r, address);
     };
-*/
+
     public func storeNat16(address: Nat64, v: Nat16) {
       Region.storeNat16(r, address, v);
     };
     public func loadNat16(address: Nat64) : Nat16 {
       Region.loadNat16(r, address);
     };
+
     public func storeNat32(address: Nat64, v: Nat32) {
       Region.storeNat32(r, address, v);
     };
     public func loadNat32(address: Nat64) : Nat32 {
       Region.loadNat32(r, address);
     };
+
     public func storeNat64(address: Nat64, v: Nat64) {
       Region.storeNat64(r, address, v);
     };
@@ -208,7 +213,7 @@ module {
       Text.join("", text_buffer.vals());
     };
 
-/*
+
     public func storeNat8(address: Nat64, v: Nat8) {
       write(address, Conversion.nat8ToBytes(v));
     };
@@ -216,7 +221,7 @@ module {
     public func loadNat8(address: Nat64) : Nat8 {
       Conversion.bytesToNat8(read(address, 1));
     };
-*/
+
     public func storeNat16(address: Nat64, v: Nat16) {
       write(address, Conversion.nat16ToBytes(v));
     };

@@ -203,7 +203,7 @@ module {
         offset += Nat64.fromNat(Nat32.toNat(max_key_size_));
 
         // Write the size of the value.
-        Memory.writeNat32(memory, address_ + offset,Nat32.fromNat(value.size()));
+        Memory.writeNat32(memory, address_ + offset, Nat32.fromNat(value.size()));
         offset += Nat64.fromNat(U32_SIZE);
 
         // Write the value.
