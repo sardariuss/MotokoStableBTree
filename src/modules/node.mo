@@ -53,28 +53,29 @@ module {
     if (header.version != LAYOUT_VERSION)                     { Debug.trap("Unsupported version."); };
 
     // Load the entries.
-    var entries = Buffer.Buffer<Entry>(0);
     var offset = SIZE_NODE_HEADER;
-    for (_ in Iter.range(0, Nat16.toNat(header.num_entries - 1))){
-      // Read the key's size.
-      let key_size = Memory.readNat32(memory, address + offset);
-      offset += U32_SIZE;
+    let entries =
+      Array.tabulate<Entry>(Nat16.toNat(header.num_entries),
+        func _ {
+          // Read the key's size.
+          let key_size = Memory.readNat32(memory, address + offset);
+          offset += U32_SIZE;
 
-      // Read the key.
-      let key = Memory.read(memory, address + offset, Nat32.toNat(key_size));
-      offset += Nat64.fromNat(Nat32.toNat(max_key_size));
+          // Read the key.
+          let key = Memory.read(memory, address + offset, Nat32.toNat(key_size));
+          offset += Nat64.fromNat(Nat32.toNat(max_key_size));
 
-      // Read the value's size.
-      let value_size = Memory.readNat32(memory, address + offset);
-      offset += U32_SIZE;
+          // Read the value's size.
+          let value_size = Memory.readNat32(memory, address + offset);
+          offset += U32_SIZE;
 
-      // Read the value.
-      let value = Memory.read(memory, address + offset, Nat32.toNat(value_size));
-      offset += Nat64.fromNat(Nat32.toNat(max_value_size));
+          // Read the value.
+          let value = Memory.read(memory, address + offset, Nat32.toNat(value_size));
+          offset += Nat64.fromNat(Nat32.toNat(max_value_size));
 
-      entries.add((key, value));
-    };
-
+          (key, value)
+        }
+    );
     // Load children if this is an internal 
     var children = Buffer.Buffer<Address>(0);
     if (header.node_type == INTERNAL_NODE_TYPE) {
@@ -89,7 +90,7 @@ module {
 
     Node({
       address;
-      entries = Buffer.toArray(entries);
+      entries;
       children = Buffer.toArray(children);
       node_type = getNodeType(header);
       max_key_size;
