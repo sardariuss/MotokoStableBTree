@@ -1,6 +1,6 @@
 import Types      "types";
 import Allocator  "allocator";
-import Conversion "conversion";
+
 import Node       "node";
 import Constants  "constants";
 import Iter       "iter";
@@ -18,6 +18,8 @@ import Nat64      "mo:base/Nat64";
 import Order      "mo:base/Order";
 import Buffer     "mo:base/Buffer";
 import Nat8       "mo:base/Nat8";
+
+// TODO crusso: consider never loading/saving _buffer field (assuming it's just reserve space).
 
 module {
 
