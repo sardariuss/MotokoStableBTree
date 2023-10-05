@@ -95,7 +95,7 @@ module {
   };
 
   /// Reads the Nat64 bytes at the specified address, traps if exceeds memory size.
-  public func read64(memory: Memory, address: Nat64) : Nat64 {
+  public func readNat64(memory: Memory, address: Nat64) : Nat64 {
     memory.loadNat64(address);
   };
 
