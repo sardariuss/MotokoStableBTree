@@ -221,6 +221,14 @@ module {
     return Principal.fromBlob(_bytes);
   };
 
+  public func boolToByte(_bool : Bool) : Nat8 {
+    if _bool 1 else 0
+  };
+
+  public func byteToBool(byte : Nat8) : Bool{
+    byte != 0;
+  };
+
   public func boolToBytes(_bool : Bool) : Blob {
     
     if(_bool == true){
