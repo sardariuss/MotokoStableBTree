@@ -42,6 +42,9 @@ module {
   let LAYOUT_VERSION : Nat8 = 1;
   let MAGIC : Blob = "BTR";
 
+  let BLOB24 : Blob =
+    "\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00";
+
   /// Initializes a `BTreeMap`.
   ///
   /// If the memory provided already contains a `BTreeMap`, then that
@@ -78,7 +81,7 @@ module {
   ///    |  BTreeHeader  |  Allocator | ... free memory for nodes |
   ///
   /// See `Allocator` for more details on its own memory layout.
-  public func new<K, V>(    
+  public func new<K, V>(
     memory : Memory,
     key_converter: BytesConverter<K>,
     value_converter: BytesConverter<V>
@@ -86,6 +89,9 @@ module {
     // Because we assume that we have exclusive access to the memory,
     // we can store the `BTreeHeader` at address zero, and the allocator is
     // stored directly after the `BTreeHeader`.
+
+    assert(BLOB24.size() == 24);
+
     let allocator_addr = Constants.ADDRESS_0 + B_TREE_HEADER_SIZE;
     let btree = BTreeMap<K, V>({
       root_addr = Constants.NULL;
@@ -142,7 +148,7 @@ module {
     root_addr: Address;
     length: Nat64;
     // Additional space reserved to add new fields without breaking backward-compatibility.
-    _buffer: [Nat8]; // 24 bytes
+    _buffer: Blob; // 24 bytes
   };
 
   func saveBTreeHeader(header: BTreeHeader, addr: Address, memory: Memory) {
@@ -152,7 +158,7 @@ module {
     Memory.writeNat32(memory, addr + 3 + 1 + 4, header.max_value_size);
     Memory.writeNat64(memory, addr + 3 + 1 + 4 + 4, header.root_addr);
     Memory.writeNat64(memory, addr + 3 + 1 + 4 + 4 + 8, header.length);
-    Memory.write     (memory, addr + 3 + 1 + 4 + 4 + 8 + 8, Blob.fromArray(header._buffer));
+    Memory.write     (memory, addr + 3 + 1 + 4 + 4 + 8 + 8, header._buffer); // crusso: why write this if just reserved?
   };
 
   func loadBTreeHeader(addr: Address, memory: Memory) : BTreeHeader {
@@ -163,10 +169,12 @@ module {
       max_value_size = Memory.readNat32(memory, addr + 3 + 1 + 4);
       root_addr = Memory.readNat64(memory, addr + 3 + 1 + 4 + 4);
       length = Memory.readNat64(memory, addr + 3 + 1 + 4 + 4 + 8);
-      _buffer = Blob.toArray(Memory.read(memory, addr + 3 + 1 + 4 + 4 + 8 + 8, 24));
+      _buffer = Memory.read(memory, addr + 3 + 1 + 4 + 4 + 8 + 8, 24); // crusso: why read this if just reserved?
     };
     if (header.magic != MAGIC) { Debug.trap("Bad magic."); };
     if (header.version != LAYOUT_VERSION) { Debug.trap("Unsupported version."); };
+
+    // debug { assert (header._buffer == BLOB24); };
 
     header;
   };
@@ -979,6 +987,7 @@ module {
       Node.load(address, memory_, max_key_size_, max_value_size_);
     };
 
+
     // Saves the map to memory.
     public func save() {
       let header : BTreeHeader = {
@@ -988,7 +997,7 @@ module {
         max_key_size = max_key_size_;
         max_value_size = max_value_size_;
         length = length_;
-        _buffer = Array.freeze<Nat8>(Array.init<Nat8>(24, 0));
+        _buffer = BLOB24; 
       };
 
       saveBTreeHeader(header, Constants.ADDRESS_0, memory_);
