@@ -31,11 +31,11 @@ module {
   type NodeType = Types.NodeType;
 
   let LAYOUT_VERSION: Nat8 = 1;
-  let MAGIC = "BTN";
+  let MAGIC : Blob = "BTN";
   let LEAF_NODE_TYPE: Nat8 = 0;
   let INTERNAL_NODE_TYPE: Nat8 = 1;
   // The size of Nat32 in bytes.
-  let U32_SIZE: Nat = 4;
+  let U32_SIZE: Nat64 = 4;
   // The size of an address in bytes.
   let ADDRESS_SIZE: Nat = 8;
 
@@ -49,7 +49,7 @@ module {
     
     // Load the header.
     let header = loadNodeHeader(address, memory);
-    if (header.magic != Blob.toArray(Text.encodeUtf8(MAGIC))) { Debug.trap("Bad magic."); };
+    if (header.magic != MAGIC) { Debug.trap("Bad magic."); };
     if (header.version != LAYOUT_VERSION)                     { Debug.trap("Unsupported version."); };
 
     // Load the entries.
@@ -58,7 +58,7 @@ module {
     for (_ in Iter.range(0, Nat16.toNat(header.num_entries - 1))){
       // Read the key's size.
       let key_size = Memory.readNat32(memory, address + offset);
-      offset += Nat64.fromNat(U32_SIZE);
+      offset += U32_SIZE;
 
       // Read the key.
       let key = Memory.read(memory, address + offset, Nat32.toNat(key_size));
@@ -66,7 +66,7 @@ module {
 
       // Read the value's size.
       let value_size = Memory.readNat32(memory, address + offset);
-      offset += Nat64.fromNat(U32_SIZE);
+      offset += U32_SIZE;
 
       // Read the value.
       let value = Memory.read(memory, address + offset, Nat32.toNat(value_size));
@@ -105,7 +105,7 @@ module {
     let max_value_size_n64 = Nat64.fromNat(Nat32.toNat(max_value_size));
 
     let node_header_size = SIZE_NODE_HEADER;
-    let entry_size = Nat64.fromNat(U32_SIZE) + max_key_size_n64 + max_value_size_n64 + Nat64.fromNat(U32_SIZE);
+    let entry_size = U32_SIZE + max_key_size_n64 + max_value_size_n64 + U32_SIZE;
     let child_size = Nat64.fromNat(ADDRESS_SIZE);
 
     node_header_size
@@ -179,7 +179,7 @@ module {
       };
 
       let header = {
-        magic = Blob.toArray(Text.encodeUtf8(MAGIC));
+        magic = MAGIC;
         version = LAYOUT_VERSION;
         node_type = switch(node_type_){
           case(#Leaf) { LEAF_NODE_TYPE; };
@@ -196,7 +196,7 @@ module {
       for ((key, value) in entries_.vals()) {
         // Write the size of the key.
         Memory.writeNat32(memory, address_ + offset, Nat32.fromNat(key.size()));
-        offset += Nat64.fromNat(U32_SIZE);
+        offset += U32_SIZE;
 
         // Write the key.
         Memory.write(memory, address_ + offset, key);
@@ -204,7 +204,7 @@ module {
 
         // Write the size of the value.
         Memory.writeNat32(memory, address_ + offset, Nat32.fromNat(value.size()));
-        offset += Nat64.fromNat(U32_SIZE);
+        offset += U32_SIZE;
 
         // Write the value.
         Memory.write(memory, address_ + offset, value);
@@ -392,7 +392,7 @@ module {
 
   // A transient data structure for reading/writing metadata into/from stable memory.
   type NodeHeader = {
-    magic: [Nat8]; // 3 bytes
+    magic: Blob; // 3 bytes
     version: Nat8;
     node_type: Nat8;
     num_entries: Nat16;
@@ -401,18 +401,18 @@ module {
   let SIZE_NODE_HEADER : Nat64 = 7;
 
   func saveNodeHeader(header: NodeHeader, addr: Address, memory: Memory) {
-    Memory.write(memory, addr,             Blob.fromArray(header.magic)               );
-    Memory.write(memory, addr + 3,         Blob.fromArray([header.version])           );
-    Memory.write(memory, addr + 3 + 1,     Blob.fromArray([header.node_type])         );
-    Memory.write(memory, addr + 3 + 1 + 1, Conversion.nat16ToBytes(header.num_entries));
+    Memory.write(memory, addr, header.magic);
+    Memory.writeNat8(memory, addr + 3, header.version);
+    Memory.writeNat8(memory, addr + 3 + 1, header.node_type);
+    Memory.writeNat16(memory, addr + 3 + 1 + 1, header.num_entries);
   };
 
   func loadNodeHeader(addr: Address, memory: Memory) : NodeHeader {
     let header = {
-      magic =                               Blob.toArray(Memory.read(memory, addr,             3));
-      version =                             Blob.toArray(Memory.read(memory, addr + 3,         1))[0];
-      node_type =                           Blob.toArray(Memory.read(memory, addr + 3 + 1,     1))[0];
-      num_entries =              Conversion.bytesToNat16(Memory.read(memory, addr + 3 + 1 + 1, 2));
+      magic = Memory.read(memory, addr, 3);
+      version = Memory.readNat8(memory, addr + 3);
+      node_type = Memory.readNat8(memory, addr + 3 + 1);
+      num_entries = Memory.readNat16(memory, addr + 3 + 1 + 1);
     };
     header;
   };
