@@ -76,22 +76,28 @@ module {
           (key, value)
         }
     );
-    // Load children if this is an internal 
-    var children = Buffer.Buffer<Address>(0);
+    // Load children if this is an internal
+    let children =
     if (header.node_type == INTERNAL_NODE_TYPE) {
       // The number of children is equal to the number of entries + 1.
-      for (_ in Iter.range(0, Nat16.toNat(header.num_entries))){
-        let child = Conversion.bytesToNat64(Memory.read(memory, address + offset, ADDRESS_SIZE));
-        offset += Nat64.fromNat(ADDRESS_SIZE);
-        children.add(child);
-      };
+      let children =
+        Array.tabulate<Address>(Nat16.toNat(header.num_entries+1),
+        func _ {
+          let child = Conversion.bytesToNat64(Memory.read(memory, address + offset, ADDRESS_SIZE));
+          offset += Nat64.fromNat(ADDRESS_SIZE);
+          child;
+        }
+      );
       assert(children.size() == entries.size() + 1);
+      children;
+    } else {
+      []
     };
 
     Node({
       address;
       entries;
-      children = Buffer.toArray(children);
+      children;
       node_type = getNodeType(header);
       max_key_size;
       max_value_size;
