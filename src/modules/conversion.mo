@@ -191,6 +191,8 @@ module {
     };
   };
 
+  // crusso: what does this function do? It's certainly not decoding utf8 to Text but looks
+  // like its decoding a binary sequence of 4-byte (unencoded) Unicode codepoints ?
   public func bytesToText(_bytes : Blob) : Text{
     
     let array = Blob.toArray(_bytes);
