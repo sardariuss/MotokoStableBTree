@@ -975,14 +975,13 @@ module {
     };
 
     func allocateNode(node_type: NodeType) : Node {
-      Node.Node({
-        address = allocator_.allocate();
-        entries = [];
-        children = [];
-        node_type;
-        max_key_size = max_key_size_;
-        max_value_size = max_value_size_;
-      });
+      Node.Node(
+        allocator_.allocate(),
+        [],
+        [],
+        node_type,
+        max_key_size_,
+        max_value_size_)
     };
 
     public func loadNode(address: Address) : Node {

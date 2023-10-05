@@ -94,14 +94,14 @@ module {
       []
     };
 
-    Node({
-      address;
-      entries;
-      children;
-      node_type = getNodeType(header);
-      max_key_size;
-      max_value_size;
-    });
+    Node(
+      address,
+      entries,
+      children,
+      getNodeType(header),
+      max_key_size,
+      max_value_size
+    );
   };
 
   /// Returns the size of a node in bytes.
@@ -142,15 +142,21 @@ module {
   ///     - value (`max_value_size` bytes)
   ///
   /// Each node can contain up to `CAPACITY + 1` children, each child is 8 bytes.
-  public class Node(variables : NodeVariables) {
+  public class Node(
+    address: Address,
+    entries: [Entry],
+    children: [Address],
+    node_type: NodeType,
+    max_key_size: Nat32,
+    max_value_size: Nat32) {
     
     /// Members
-    var address_ : Address = variables.address;
-    var entries_ : Buffer<Entry> = Utils.toBuffer(variables.entries);
-    var children_ : Buffer<Address> = Utils.toBuffer(variables.children);
-    let node_type_ : NodeType = variables.node_type;
-    let max_key_size_ : Nat32 = variables.max_key_size;
-    let max_value_size_ : Nat32 = variables.max_value_size;
+    var address_ : Address = address;
+    var entries_ : Buffer<Entry> = Utils.toBuffer(entries);
+    var children_ : Buffer<Address> = Utils.toBuffer(children);
+    let node_type_ : NodeType = node_type;
+    let max_key_size_ : Nat32 = max_key_size;
+    let max_value_size_ : Nat32 = max_value_size;
 
     /// Getters
     public func getAddress() : Address { address_; };
