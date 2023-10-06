@@ -1,6 +1,6 @@
 import Types      "types";
 import Allocator  "allocator";
-import Conversion "conversion";
+
 import Node       "node";
 import Constants  "constants";
 import Iter       "iter";
@@ -18,6 +18,8 @@ import Nat64      "mo:base/Nat64";
 import Order      "mo:base/Order";
 import Buffer     "mo:base/Buffer";
 import Nat8       "mo:base/Nat8";
+
+// TODO crusso: consider never loading/saving _buffer field (assuming it's just reserve space).
 
 module {
 
@@ -40,7 +42,10 @@ module {
   type Allocator = Allocator.Allocator;
 
   let LAYOUT_VERSION : Nat8 = 1;
-  let MAGIC = "BTR";
+  let MAGIC : Blob = "BTR";
+
+  let BLOB24 : Blob =
+    "\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00";
 
   /// Initializes a `BTreeMap`.
   ///
@@ -58,7 +63,7 @@ module {
 
     // Check if the magic in the memory corresponds to a BTreeMap.
     let dst = Memory.read(memory, 0, 3);
-    if (dst != Text.encodeUtf8(MAGIC)) {
+    if (dst != MAGIC) {
       // No BTreeMap found. Create a new instance.
       return new(memory, key_converter, value_converter);
     };
@@ -78,7 +83,7 @@ module {
   ///    |  BTreeHeader  |  Allocator | ... free memory for nodes |
   ///
   /// See `Allocator` for more details on its own memory layout.
-  public func new<K, V>(    
+  public func new<K, V>(
     memory : Memory,
     key_converter: BytesConverter<K>,
     value_converter: BytesConverter<V>
@@ -86,6 +91,9 @@ module {
     // Because we assume that we have exclusive access to the memory,
     // we can store the `BTreeHeader` at address zero, and the allocator is
     // stored directly after the `BTreeHeader`.
+
+    assert(BLOB24.size() == 24);
+
     let allocator_addr = Constants.ADDRESS_0 + B_TREE_HEADER_SIZE;
     let btree = BTreeMap<K, V>({
       root_addr = Constants.NULL;
@@ -135,39 +143,41 @@ module {
   let B_TREE_HEADER_SIZE : Nat64 = 52;
 
   type BTreeHeader = {
-    magic: [Nat8]; // 3 bytes
+    magic: Blob; // 3 bytes
     version: Nat8;
     max_key_size: Nat32;
     max_value_size: Nat32;
     root_addr: Address;
     length: Nat64;
     // Additional space reserved to add new fields without breaking backward-compatibility.
-    _buffer: [Nat8]; // 24 bytes
+    _buffer: Blob; // 24 bytes
   };
 
   func saveBTreeHeader(header: BTreeHeader, addr: Address, memory: Memory) {
-    Memory.write(memory, addr                        ,                   Blob.fromArray(header.magic));
-    Memory.write(memory, addr + 3                    ,               Blob.fromArray([header.version]));
-    Memory.write(memory, addr + 3 + 1                ,   Conversion.nat32ToBytes(header.max_key_size));
-    Memory.write(memory, addr + 3 + 1 + 4            , Conversion.nat32ToBytes(header.max_value_size));
-    Memory.write(memory, addr + 3 + 1 + 4 + 4        ,      Conversion.nat64ToBytes(header.root_addr));
-    Memory.write(memory, addr + 3 + 1 + 4 + 4 + 8    ,         Conversion.nat64ToBytes(header.length));
-    Memory.write(memory, addr + 3 + 1 + 4 + 4 + 8 + 8,                 Blob.fromArray(header._buffer));
+    Memory.write(memory, addr, header.magic);
+    Memory.writeNat8 (memory, addr + 3, header.version);
+    Memory.writeNat32(memory, addr + 3 + 1, header.max_key_size);
+    Memory.writeNat32(memory, addr + 3 + 1 + 4, header.max_value_size);
+    Memory.writeNat64(memory, addr + 3 + 1 + 4 + 4, header.root_addr);
+    Memory.writeNat64(memory, addr + 3 + 1 + 4 + 4 + 8, header.length);
+    Memory.write     (memory, addr + 3 + 1 + 4 + 4 + 8 + 8, header._buffer); // crusso: why write this if just reserved?
   };
 
   func loadBTreeHeader(addr: Address, memory: Memory) : BTreeHeader {
     let header = {
-      magic =                     Blob.toArray(Memory.read(memory, addr                        , 3 ));
-      version =                   Blob.toArray(Memory.read(memory, addr + 3                    , 1 ))[0];
-      max_key_size =   Conversion.bytesToNat32(Memory.read(memory, addr + 3 + 1                , 4 ));
-      max_value_size = Conversion.bytesToNat32(Memory.read(memory, addr + 3 + 1 + 4            , 4 ));
-      root_addr =      Conversion.bytesToNat64(Memory.read(memory, addr + 3 + 1 + 4 + 4        , 8 ));
-      length =         Conversion.bytesToNat64(Memory.read(memory, addr + 3 + 1 + 4 + 4 + 8    , 8 ));
-      _buffer =                   Blob.toArray(Memory.read(memory, addr + 3 + 1 + 4 + 4 + 8 + 8, 24));
+      magic = Memory.read(memory, addr, 3 );
+      version = Memory.readNat8(memory, addr + 3);
+      max_key_size = Memory.readNat32(memory, addr + 3 + 1);
+      max_value_size = Memory.readNat32(memory, addr + 3 + 1 + 4);
+      root_addr = Memory.readNat64(memory, addr + 3 + 1 + 4 + 4);
+      length = Memory.readNat64(memory, addr + 3 + 1 + 4 + 4 + 8);
+      _buffer = Memory.read(memory, addr + 3 + 1 + 4 + 4 + 8 + 8, 24); // crusso: why read this if just reserved?
     };
-    if (header.magic != Blob.toArray(Text.encodeUtf8(MAGIC))) { Debug.trap("Bad magic."); };
-    if (header.version != LAYOUT_VERSION)                     { Debug.trap("Unsupported version."); };
-    
+    if (header.magic != MAGIC) { Debug.trap("Bad magic."); };
+    if (header.version != LAYOUT_VERSION) { Debug.trap("Unsupported version."); };
+
+    // debug { assert (header._buffer == BLOB24); };
+
     header;
   };
 
@@ -965,30 +975,30 @@ module {
     };
 
     func allocateNode(node_type: NodeType) : Node {
-      Node.Node({
-        address = allocator_.allocate();
-        entries = [];
-        children = [];
-        node_type;
-        max_key_size = max_key_size_;
-        max_value_size = max_value_size_;
-      });
+      Node.Node(
+        allocator_.allocate(),
+        [],
+        [],
+        node_type,
+        max_key_size_,
+        max_value_size_)
     };
 
     public func loadNode(address: Address) : Node {
       Node.load(address, memory_, max_key_size_, max_value_size_);
     };
 
+
     // Saves the map to memory.
     public func save() {
       let header : BTreeHeader = {
-        magic = Blob.toArray(Text.encodeUtf8(MAGIC));
+        magic = MAGIC;
         version = LAYOUT_VERSION;
         root_addr = root_addr_;
         max_key_size = max_key_size_;
         max_value_size = max_value_size_;
         length = length_;
-        _buffer = Array.freeze<Nat8>(Array.init<Nat8>(24, 0));
+        _buffer = BLOB24; 
       };
 
       saveBTreeHeader(header, Constants.ADDRESS_0, memory_);

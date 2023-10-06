@@ -6,6 +6,7 @@
     "bip39": "^3.0.4",
     "hdkey": "^2.0.1",
     "isomorphic-fetch": "^3.0.0",
+    "node-fetch": "^3.3.2",
     "tape": "^5.6.1"
   }
 }

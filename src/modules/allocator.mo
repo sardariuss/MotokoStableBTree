@@ -7,6 +7,8 @@ import Blob       "mo:base/Blob";
 import Text       "mo:base/Text";
 import Debug      "mo:base/Debug";
 
+// TODO: crusso: remove alignment provisions (copied from Rust?)
+
 module {
 
   // For convenience: from types module
@@ -17,8 +19,8 @@ module {
   let ALLOCATOR_LAYOUT_VERSION: Nat8 = 1;
   let CHUNK_LAYOUT_VERSION: Nat8 = 1;
 
-  let ALLOCATOR_MAGIC = "BTA";
-  let CHUNK_MAGIC = "CHK";
+  let ALLOCATOR_MAGIC : Blob = "BTA";
+  let CHUNK_MAGIC : Blob = "CHK";
 
   /// Initialize an allocator and store it in address `addr`.
   ///
@@ -54,17 +56,17 @@ module {
   public func loadAllocator(memory: Memory, addr: Address) : Allocator {
     
     let header = {
-      magic                =            Blob.toArray(Memory.read(memory, addr,                         3));
-      version              =            Blob.toArray(Memory.read(memory, addr + 3,                     1))[0];
-      _alignment           =            Blob.toArray(Memory.read(memory, addr + 3 + 1,                 4));
-      allocation_size      = Conversion.bytesToNat64(Memory.read(memory, addr + 3 + 1 + 4,             8));
-      num_allocated_chunks = Conversion.bytesToNat64(Memory.read(memory, addr + 3 + 1 + 4 + 8,         8));
-      free_list_head       = Conversion.bytesToNat64(Memory.read(memory, addr + 3 + 1 + 4 + 8 + 8,     8));
-      _buffer              =            Blob.toArray(Memory.read(memory, addr + 3 + 1 + 4 + 8 + 8 + 8, 16));
+      magic                = Memory.read(memory, addr, 3);
+      version              = Memory.readNat8(memory, addr + 3);
+      _alignment           = Memory.read(memory, addr + 3 + 1, 4); // crusso: delete me?
+      allocation_size      = Memory.readNat64(memory, addr + 3 + 1 + 4);
+      num_allocated_chunks = Memory.readNat64(memory, addr + 3 + 1 + 4 + 8);
+      free_list_head       = Memory.readNat64(memory, addr + 3 + 1 + 4 + 8 + 8);
+      _buffer              = Memory.read(memory, addr + 3 + 1 + 4 + 8 + 8 + 8, 16); //crusso: delete me?
     };
 
-    if (header.magic != Blob.toArray(Text.encodeUtf8(ALLOCATOR_MAGIC))) { Debug.trap("Bad magic."); };
-    if (header.version != ALLOCATOR_LAYOUT_VERSION)                     { Debug.trap("Unsupported version."); };
+    if (header.magic != ALLOCATOR_MAGIC) { Debug.trap("Bad magic."); };
+    if (header.version != ALLOCATOR_LAYOUT_VERSION) { Debug.trap("Unsupported version."); };
     
     Allocator({
       header_addr = addr;
@@ -226,13 +228,13 @@ module {
       let header = getHeader();
       let addr = header_addr_;
 
-      Memory.write(memory_, addr,                                                 Blob.fromArray(header.magic));
-      Memory.write(memory_, addr + 3,                                         Blob.fromArray([header.version]));
-      Memory.write(memory_, addr + 3 + 1,                                    Blob.fromArray(header._alignment));
-      Memory.write(memory_, addr + 3 + 1 + 4,                  Conversion.nat64ToBytes(header.allocation_size));
-      Memory.write(memory_, addr + 3 + 1 + 4 + 8,         Conversion.nat64ToBytes(header.num_allocated_chunks));
-      Memory.write(memory_, addr + 3 + 1 + 4 + 8 + 8,           Conversion.nat64ToBytes(header.free_list_head));
-      Memory.write(memory_, addr + 3 + 1 + 4 + 8 + 8 + 8,                       Blob.fromArray(header._buffer));
+      Memory.write(memory_, addr, header.magic);
+      Memory.writeNat8(memory_, addr + 3, header.version);
+      Memory.write(memory_, addr + 3 + 1, header._alignment); // TODO crusso: skip me?
+      Memory.writeNat64(memory_, addr + 3 + 1 + 4, header.allocation_size);
+      Memory.writeNat64(memory_, addr + 3 + 1 + 4 + 8, header.num_allocated_chunks);
+      Memory.writeNat64(memory_, addr + 3 + 1 + 4 + 8 + 8, header.free_list_head);
+      Memory.write(memory_, addr + 3 + 1 + 4 + 8 + 8 + 8, header._buffer);
     };
 
     // The full size of a chunk, which is the size of the header + the `allocation_size` that's
@@ -243,38 +245,38 @@ module {
 
     func getHeader() : AllocatorHeader{
       {
-        magic = Blob.toArray(Text.encodeUtf8(ALLOCATOR_MAGIC));
+        magic = ALLOCATOR_MAGIC;
         version = ALLOCATOR_LAYOUT_VERSION;
-        _alignment = [0, 0, 0, 0];
+        _alignment = "\00\00\00\00";
         allocation_size = allocation_size_;
         num_allocated_chunks = num_allocated_chunks_;
         free_list_head = free_list_head_;
-        _buffer = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        _buffer = "\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00";
       };
     };
 
   };
 
   type AllocatorHeader = {
-    magic: [Nat8]; // 3 bytes
+    magic: Blob; // 3 bytes
     version: Nat8;
     // Empty space to memory-align the following fields.
-    _alignment: [Nat8]; // 4 bytes
+    _alignment: Blob; // 4 bytes
     allocation_size: Bytes;
     num_allocated_chunks: Nat64;
     free_list_head: Address;
     // Additional space reserved to add new fields without breaking backward-compatibility.
-    _buffer: [Nat8]; // 16 bytes
+    _buffer: Blob; // 16 bytes
   };
 
   public let SIZE_ALLOCATOR_HEADER : Nat64 = 48;
 
   type ChunkHeader = {
-    magic: [Nat8]; // 3 bytes
+    magic: Blob; // 3 bytes
     version: Nat8;
     allocated: Bool;
     // Empty space to memory-align the following fields.
-    _alignment: [Nat8]; // 3 bytes
+    _alignment: Blob; // 3 bytes
     next: Address;
   };
 
@@ -283,32 +285,32 @@ module {
   // Initializes an unallocated chunk that doesn't point to another chunk.
   func initChunkHeader() : ChunkHeader {
     {
-      magic = Blob.toArray(Text.encodeUtf8(CHUNK_MAGIC));
+      magic = CHUNK_MAGIC;
       version = CHUNK_LAYOUT_VERSION;
       allocated = false;
-      _alignment = [0, 0, 0];
+      _alignment = "\00\00\00" : Blob;
       next = Constants.NULL;
     };
   };
 
   func saveChunkHeader(header: ChunkHeader, addr: Address, memory: Memory) {
-    Memory.write(memory, addr,                              Blob.fromArray(header.magic));
-    Memory.write(memory, addr + 3,                      Blob.fromArray([header.version]));
-    Memory.write(memory, addr + 3 + 1,          Conversion.boolToBytes(header.allocated));
-    Memory.write(memory, addr + 3 + 1 + 1,             Blob.fromArray(header._alignment));
-    Memory.write(memory, addr + 3 + 1 + 1 + 3,      Conversion.nat64ToBytes(header.next));
+    Memory.write(memory, addr, header.magic);
+    Memory.writeNat8(memory, addr + 3, header.version);
+    Memory.writeNat8(memory, addr + 3 + 1, Conversion.boolToByte(header.allocated));
+    Memory.write(memory, addr + 3 + 1 + 1, header._alignment); // TODO crusso: skip me
+    Memory.writeNat64(memory, addr + 3 + 1 + 1 + 3, header.next);
   };
 
   public func loadChunkHeader(addr: Address, memory: Memory) : ChunkHeader {
     let header = {
-      magic =               Blob.toArray(Memory.read(memory, addr,                 3));
-      version =             Blob.toArray(Memory.read(memory, addr + 3,             1))[0];
-      allocated = Conversion.bytesToBool(Memory.read(memory, addr + 3 + 1,         1));
-      _alignment =          Blob.toArray(Memory.read(memory, addr + 3 + 1 + 1,     3));
-      next =     Conversion.bytesToNat64(Memory.read(memory, addr + 3 + 1 + 1 + 3, 8));
+      magic =  Memory.read(memory, addr, 3);
+      version = Memory.readNat8(memory, addr + 3);
+      allocated = Conversion.byteToBool(Memory.readNat8(memory, addr + 3 + 1));
+      _alignment = Memory.read(memory, addr + 3 + 1 + 1, 3); // TODO crusso: skip me
+      next = Memory.readNat64(memory, addr + 3 + 1 + 1 + 3);
     };
-    if (header.magic != Blob.toArray(Text.encodeUtf8(CHUNK_MAGIC))) { Debug.trap("Bad magic."); };
-    if (header.version != CHUNK_LAYOUT_VERSION)                     { Debug.trap("Unsupported version."); };
+    if (header.magic != CHUNK_MAGIC) { Debug.trap("Bad magic."); };
+    if (header.version != CHUNK_LAYOUT_VERSION) { Debug.trap("Unsupported version."); };
     
     header;
   };

@@ -12,57 +12,90 @@ import Debug     "mo:base/Debug";
 import Iter      "mo:base/Iter";
 import Text      "mo:base/Text";
 import Nat8      "mo:base/Nat8";
-import Result    "mo:base/Result";
+
+import Conversion "conversion";
 
 module {
 
   // For convenience: from types module
   type Memory = Types.Memory;
-  // For convenience: from base module
-  type Result<Ok, Err> = Result.Result<Ok, Err>;
 
   type GrowFailed = {
     current_size: Nat64;
     delta: Nat64;
   };
 
-  /// Writes the bytes at the specified address, growing the memory size if needed.
-  public func safeWrite(memory: Memory, address: Nat64, bytes: Blob) : Result<(), GrowFailed> {
+  /// Prepare the bytes at the specified address, growing the memory size if needed.
+  public func prepWrite(memory: Memory, address: Nat64, size: Nat64) {
     // Traps on overflow.
-    let offset = address + Nat64.fromNat(bytes.size());
+    let offset = address + size;
     // Compute the number of pages required.
     let pages = (offset + Constants.WASM_PAGE_SIZE - 1) / Constants.WASM_PAGE_SIZE;
     // Grow the number of pages if necessary.
     if (pages > memory.size()){
       let diff_pages = pages - memory.size();
       if (memory.grow(diff_pages) < 0){
-        return #err({
-          current_size = memory.size();
-          delta = diff_pages;
-        });  
-      };
-    };
-    // Store the bytes in memory.
-    memory.write(address, bytes);
-    #ok();
-  };
-
-  /// Like [safe_write], but traps if the memory.grow fails.
-  public func write(memory: Memory, address: Nat64, bytes: Blob) {
-    switch(safeWrite(memory, address, bytes)){
-      case(#err({current_size; delta})){
-        Debug.trap("Failed to grow memory from " # Nat64.toText(current_size) 
-          # " pages to " # Nat64.toText(current_size + delta) 
+        let current_size = memory.size();
+        let delta = diff_pages;
+        Debug.trap("Failed to grow memory from " # Nat64.toText(current_size)
+          # " pages to " # Nat64.toText(current_size + delta)
           # " pages (delta = " # Nat64.toText(delta) # " pages).");
       };
-      case(_) {};
     };
   };
+
+  public func write(memory: Memory, address: Nat64, bytes: Blob) {
+    prepWrite(memory, address, Nat64.fromNat(bytes.size()));
+    memory.write(address, bytes);
+  };
+
+
+  public func writeNat8(memory: Memory, address: Nat64, v: Nat8) {
+    prepWrite(memory, address, 1);
+    memory.storeNat8(address, v);
+  };
+
+  public func writeNat16(memory: Memory, address: Nat64, v: Nat16) {
+    prepWrite(memory, address, 2);
+    memory.storeNat16(address, v);
+  };
+
+  public func writeNat32(memory: Memory, address: Nat64, v: Nat32) {
+    prepWrite(memory, address, 4);
+    memory.storeNat32(address, v);
+  };
+
+  public func writeNat64(memory: Memory, address: Nat64, v: Nat64) {
+    prepWrite(memory, address, 8);
+    memory.storeNat64(address, v);
+  };
+
 
   /// Reads the bytes at the specified address, traps if exceeds memory size.
   public func read(memory: Memory, address: Nat64, size: Nat) : Blob {
     memory.read(address, size);
   };
+
+  /// Reads the Nat8 bytes at the specified address, traps if exceeds memory size.
+  public func readNat8(memory: Memory, address: Nat64) : Nat8 {
+    memory.loadNat8(address);
+  };
+
+  /// Reads the Nat16 bytes at the specified address, traps if exceeds memory size.
+  public func readNat16(memory: Memory, address: Nat64) : Nat16 {
+    memory.loadNat16(address);
+  };
+
+  /// Reads the Nat32 bytes at the specified address, traps if exceeds memory size.
+  public func readNat32(memory: Memory, address: Nat64) : Nat32 {
+    memory.loadNat32(address);
+  };
+
+  /// Reads the Nat64 bytes at the specified address, traps if exceeds memory size.
+  public func readNat64(memory: Memory, address: Nat64) : Nat64 {
+    memory.loadNat64(address);
+  };
+
 
   public class RegionMemory(r: Region.Region) : Memory {
     public func size() : Nat64 { 
@@ -81,6 +114,35 @@ module {
     public func read(address: Nat64, size: Nat) : Blob {
       Region.loadBlob(r, address, size);
     };
+
+    public func storeNat8(address: Nat64, v: Nat8) {
+      Region.storeNat8(r, address, v);
+    };
+    public func loadNat8(address: Nat64) : Nat8 {
+      Region.loadNat8(r, address);
+    };
+
+    public func storeNat16(address: Nat64, v: Nat16) {
+      Region.storeNat16(r, address, v);
+    };
+    public func loadNat16(address: Nat64) : Nat16 {
+      Region.loadNat16(r, address);
+    };
+
+    public func storeNat32(address: Nat64, v: Nat32) {
+      Region.storeNat32(r, address, v);
+    };
+    public func loadNat32(address: Nat64) : Nat32 {
+      Region.loadNat32(r, address);
+    };
+
+    public func storeNat64(address: Nat64, v: Nat64) {
+      Region.storeNat64(r, address, v);
+    };
+    public func loadNat64(address: Nat64) : Nat64 {
+      Region.loadNat64(r, address);
+    };
+
   };
 
   public class VecMemory() = this {
@@ -147,6 +209,40 @@ module {
       text_buffer.add("]");
       Text.join("", text_buffer.vals());
     };
+
+
+    public func storeNat8(address: Nat64, v: Nat8) {
+      write(address, Conversion.nat8ToBytes(v));
+    };
+
+    public func loadNat8(address: Nat64) : Nat8 {
+      Conversion.bytesToNat8(read(address, 1));
+    };
+
+    public func storeNat16(address: Nat64, v: Nat16) {
+      write(address, Conversion.nat16ToBytes(v));
+    };
+
+    public func loadNat16(address: Nat64) : Nat16 {
+      Conversion.bytesToNat16(read(address, 2));
+    };
+
+    public func storeNat32(address: Nat64, v: Nat32) {
+      write(address, Conversion.nat32ToBytes(v));
+    };
+
+    public func loadNat32(address: Nat64) : Nat32 {
+      Conversion.bytesToNat32(read(address, 4));
+    };
+
+    public func storeNat64(address: Nat64, v: Nat64) {
+      write(address, Conversion.nat64ToBytes(v));
+    };
+
+    public func loadNat64(address: Nat64) : Nat64 {
+      Conversion.bytesToNat64(read(address, 8));
+    };
+
 
   };
 
