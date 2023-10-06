@@ -81,7 +81,8 @@ module {
     if (header.node_type == INTERNAL_NODE_TYPE) {
       // The number of children is equal to the number of entries + 1.
       let children =
-        Array.tabulate<Address>(Nat16.toNat(header.num_entries+1),
+        Array.tabulate<Address>(Nat16.toNat(header.num_entries)+1,
+
         func _ {
           let child = Conversion.bytesToNat64(Memory.read(memory, address + offset, ADDRESS_SIZE));
           offset += Nat64.fromNat(ADDRESS_SIZE);
