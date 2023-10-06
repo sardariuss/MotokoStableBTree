@@ -84,7 +84,7 @@ module {
         Array.tabulate<Address>(Nat16.toNat(header.num_entries)+1,
 
         func _ {
-          let child = Conversion.bytesToNat64(Memory.read(memory, address + offset, ADDRESS_SIZE));
+          let child = Memory.readNat64(memory, address + offset);
           offset += Nat64.fromNat(ADDRESS_SIZE);
           child;
         }
